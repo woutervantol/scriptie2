@@ -1,9 +1,13 @@
 import torch
+import torch.nn.functional as F
 import time
 import numpy as np
 
-class NeuralNetwork():
-    def __init__(self, lr=0.001, batch_size=64):
+
+
+class Model():
+    def __init__(self, p, lr=0.001, batch_size=64):
+        self.p = p
         self.model = None
         self.optimizer = None
         self.lr = lr
@@ -21,14 +25,8 @@ class NeuralNetwork():
             torch.nn.Linear(100, 1)
         )
 
-    def set_convolutional_model(self, in_channels=2):
-
-        self.model = torch.nn.Sequential(
-            torch.nn.Conv2d(in_channels=in_channels, out_channels=20, kernel_size=(3, 3), stride=1, padding_mode="zeros"),
-            torch.nn.ReLU(),
-            torch.nn.Flatten(),
-            torch.nn.Linear(76880, 1)
-        )
+    def set_convolutional_model(self, architecture):
+        self.model = CustomCNN(architecture)
 
 
     def set_optimizer(self):
@@ -86,3 +84,88 @@ def MSE(pred, true):
 def predict_mass_linear(l, band="low"):
     poly = np.poly1d(np.load(f"/home/tol/Documents/Thesis/models/linear_fit_{band}_6.npy"))
     return 10**poly(np.log10(l))
+
+
+
+
+
+class NeuralNetwork(torch.nn.Module):
+    def __init__(self, p, in_channels=2):
+        super().__init__()
+        res = p['resolution']
+        hidden_channels = 20
+        kernel = 3
+
+        self.conv1 = torch.nn.Conv2d(in_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
+        self.bn1 = torch.nn.BatchNorm2d(hidden_channels)
+        self.conv2 = torch.nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
+        self.bn2 = torch.nn.BatchNorm2d(hidden_channels)
+        self.flatten = torch.nn.Flatten()
+        self.out = torch.nn.Linear(res*res*hidden_channels, 1)
+
+    def forward(self, x):
+        x = self.conv1(x)
+        # x = self.bn1(x)
+        x = F.relu(x)
+
+        x = self.conv2(x)
+        # x = self.bn2(x)
+        x = F.relu(x)
+        
+        x = self.flatten(x)
+        x = self.out(x)
+        return x
+
+
+
+
+class CustomCNN(torch.nn.Module):
+    def __init__(self, architecture):
+        super(CustomCNN, self).__init__()
+
+        self.layers, self.skip_connection_indices = self._build_layers(architecture)
+
+    def _build_layers(self, layer_configs):
+        layers = torch.nn.ModuleList()
+        skip_connection_indices = []
+
+        for idx, l in enumerate(layer_configs):
+            layer_type = l['type']
+
+            if layer_type == 'conv':
+                layers.append(torch.nn.Conv2d(l['in_channels'], l['out_channels'], l['kernel_size'], l['stride'], l['padding']))
+
+                # Check if there's a skip connection
+                if 'skip_connection' in l and l['skip_connection']:
+                    skip_connection_indices.append(idx)
+
+            elif layer_type == 'pool':
+                layers.append(torch.nn.MaxPool2d(l['kernel_size'], l['stride'], l['padding']))
+
+            elif layer_type == 'fc':
+                layers.append(torch.nn.Linear(l['in_features'], l['out_features']))
+
+            elif layer_type == 'relu':
+                layers.append(torch.nn.ReLU())
+                
+            elif layer_type == 'flatten':
+                layers.append(torch.nn.Flatten())
+
+            elif layer_type == 'softmax':
+                layers.append(torch.nn.Softmax(dim=1))
+
+            else:
+                raise ValueError(f"Unsupported layer type: {layer_type}")
+
+        return layers, skip_connection_indices
+
+    def forward(self, x):
+        # skip_connections = []
+        for layer_idx, layer in enumerate(self.layers):
+            x = layer(x)
+            # if layer_idx in self.skip_connection_indices:
+            #     skip_connections.append(x)
+
+        return x#, skip_connections
+
+

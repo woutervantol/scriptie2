@@ -6,8 +6,8 @@ import unyt
 from imports.utility import *
 
 class Data():
-    def __init__(self, p, soap_path="", sw_path = ""):
-        self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{soap_path}", "r")
+    def __init__(self, p, sw_path = ""):
+        self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
         self.sw_path = f"{p_to_path(p)}/snapshots/{sw_path}"
         self.selection_type = p["selection_type"]
         self.p = p
@@ -47,9 +47,9 @@ class Data():
         self.split_data(data_x, data_y)
         
     
-    def make_obs_dataset(self, filepath, target="TotalMass"):
+    def make_obs_dataset(self, filepath, channel="2chan", target="TotalMass"):
         data_x = np.load(f"{filepath}.npy")
-        indices_y = np.sort(np.load(f"{filepath}_halo_indices.npy"))
+        indices_y = np.load(f"{filepath}_halo_indices.npy")
         data_y = self.soap_file[f"{self.selection_type}/{target}"][indices_y]
         nonzero = (data_y != 0)
 
@@ -65,7 +65,14 @@ class Data():
         data_x = (data_x - self.mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / self.std_x[np.newaxis, :, np.newaxis, np.newaxis]
         data_y = (data_y - self.mean_y) / self.std_y
         
-        data_x, data_y = self.shuffle_data(data_x, data_y)
+        if channel=="low": 
+            data_x = data_x[:,:1,:,:]
+        elif channel=="high": 
+            data_x = data_x[:,1:,:,:]
+        else:
+            pass
+
+        # data_x, data_y = self.shuffle_data(data_x, data_y)
         self.split_data(data_x, data_y)
 
 
@@ -73,13 +80,13 @@ class Data():
     def create_obs_data(self, save_loc="", nr_samples=100):
         res = self.p['resolution']
         fixed_radius = self.p['obs_radius'] * unyt.Mpc
-        dataset = np.zeros((nr_samples, 2, res, res))
+        dataset = np.array([])
         time_start = time.time()
-        filename = f"obs_data_{p_to_filename(self.p)}_M1e13_rad1Mpc"
+        filename = f"obs_data_{p_to_filename(self.p)}_M1e13_rad{self.p['obs_radius']}Mpc"
 
-        nr_bins = 10
+        nr_bins = 20
         mass_bin_edges = np.logspace(13, 15, nr_bins+1)
-        halo_indices = self.mass_uniform_halo_indices(mass_bin_edges, nr_samples)
+        halo_indices = np.sort(self.mass_uniform_halo_indices(mass_bin_edges, nr_samples))
         np.save(f"{save_loc}/{filename}_halo_indices", halo_indices)
 
         for sample in range(len(halo_indices)):
@@ -118,8 +125,11 @@ class Data():
             red_flux *= kpc_per_pixel
             blue_flux *= kpc_per_pixel
 
-            dataset[sample, 0, :, :] = red_flux
-            dataset[sample, 1, :, :] = blue_flux
+            fluxes = np.append(red_flux, blue_flux).reshape(1, 2, res, res)
+            dataset = np.append(dataset, fluxes, axis=0)
+
+            # dataset[sample, 0, :, :] = red_flux
+            # dataset[sample, 1, :, :] = blue_flux
 
             print(f"Sample {sample} of {len(halo_indices)} done. Time running: {time.time() - time_start}s")
 
@@ -132,9 +142,9 @@ class Data():
 
 
     def split_data(self, x, y):
+        #[test : val : train]
         test_split = int(len(x)*self.test_size)
         val_split = test_split + int(len(x)*self.val_size)
-
         self.testx = x[:test_split]
         self.testy = y[:test_split]
         self.valx = x[test_split:val_split]
@@ -152,12 +162,15 @@ class Data():
     def mass_uniform_halo_indices(self, mass_bin_edges, nr_samples):
         nr_bins = len(mass_bin_edges[:-1])
         halos_per_bin = int(nr_samples / nr_bins)
-        halo_indices = np.zeros((halos_per_bin*nr_bins), dtype=int)
+        halo_indices = np.array([], dtype=int)
         masses = self.soap_file[f"{self.selection_type}/TotalMass"][:]
         indices = np.arange(len(masses))
         for i in range(nr_bins):
             bin_indices = indices[np.logical_and(masses > mass_bin_edges[i], masses < mass_bin_edges[i+1])]
-            choices = np.random.choice(bin_indices, size=(halos_per_bin))
-            halo_indices[halos_per_bin*i:halos_per_bin*(i+1)] = choices
-        
+            if len(bin_indices) > halos_per_bin:
+                choices = np.random.choice(bin_indices, size=(halos_per_bin), replace=False)
+            else:
+                choices = bin_indices
+            halo_indices = np.append(halo_indices, choices)
+
         return halo_indices
