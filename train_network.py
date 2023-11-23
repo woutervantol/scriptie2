@@ -18,10 +18,15 @@ data.make_obs_dataset(filepath=filepath, channel="2chan", target="TotalMass")
 
 
 model = Model(p, lr=0.00001, batch_size=16)
+# p["base_convolutional_network"][0]["in_channels"] = 1
 model.set_convolutional_model(p["base_convolutional_network"])
 model.set_optimizer()
 
 model.train(data, nr_epochs=50)
 
 
-torch.save(model.model, f"{p['base_model_path']}/obs_model_2chan_M13-15_L45.pt")
+torch.save(model.model, f"{p['base_model_path']}/obs_model_2chan.pt")
+
+# import json
+# with open(f"{p['base_model_path']}/obs_model_2chan.json", 'w') as fp:
+#     json.dump(p, fp)

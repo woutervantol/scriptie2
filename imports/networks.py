@@ -37,12 +37,13 @@ class Model():
         for epoch in range(nr_epochs):
             epoch_start = time.time()
             nr_batches = int(len(data.trainy)/self.batch_size)
+            trainx, trainy = self.shuffle(data.trainx, data.trainy)
             train_losses = 0
             for batch in range(nr_batches):
                 batch_start = batch*self.batch_size
                 batch_stop = (batch+1)*self.batch_size
-                y_pred = self.model(torch.Tensor(data.trainx[batch_start:batch_stop])).squeeze(1)
-                target = torch.Tensor(data.trainy[batch_start:batch_stop])
+                y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop])).squeeze(1)
+                target = torch.Tensor(trainy[batch_start:batch_stop])
                 loss = self.lossfn(y_pred, target)
                 with torch.no_grad():
                     train_losses += loss
@@ -66,7 +67,12 @@ class Model():
                     self.val_losses.append(val_loss)
                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}")
-                
+        
+    def shuffle(self, datax, datay):
+        indices = np.arange(len(datay))
+        np.random.shuffle(indices)
+        print(indices)
+        return datax[indices], datay[indices]
 
 
     def test(self, data):
@@ -89,32 +95,32 @@ def predict_mass_linear(l, band="low"):
 
 
 
-class NeuralNetwork(torch.nn.Module):
-    def __init__(self, p, in_channels=2):
-        super().__init__()
-        res = p['resolution']
-        hidden_channels = 20
-        kernel = 3
+# class NeuralNetwork(torch.nn.Module):
+#     def __init__(self, p, in_channels=2):
+#         super().__init__()
+#         res = p['resolution']
+#         hidden_channels = 20
+#         kernel = 3
 
-        self.conv1 = torch.nn.Conv2d(in_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
-        self.bn1 = torch.nn.BatchNorm2d(hidden_channels)
-        self.conv2 = torch.nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
-        self.bn2 = torch.nn.BatchNorm2d(hidden_channels)
-        self.flatten = torch.nn.Flatten()
-        self.out = torch.nn.Linear(res*res*hidden_channels, 1)
+#         self.conv1 = torch.nn.Conv2d(in_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
+#         self.bn1 = torch.nn.BatchNorm2d(hidden_channels)
+#         self.conv2 = torch.nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
+#         self.bn2 = torch.nn.BatchNorm2d(hidden_channels)
+#         self.flatten = torch.nn.Flatten()
+#         self.out = torch.nn.Linear(res*res*hidden_channels, 1)
 
-    def forward(self, x):
-        x = self.conv1(x)
-        # x = self.bn1(x)
-        x = F.relu(x)
+#     def forward(self, x):
+#         x = self.conv1(x)
+#         # x = self.bn1(x)
+#         x = F.relu(x)
 
-        x = self.conv2(x)
-        # x = self.bn2(x)
-        x = F.relu(x)
+#         x = self.conv2(x)
+#         # x = self.bn2(x)
+#         x = F.relu(x)
         
-        x = self.flatten(x)
-        x = self.out(x)
-        return x
+#         x = self.flatten(x)
+#         x = self.out(x)
+#         return x
 
 
 
