@@ -46,7 +46,7 @@ class Model():
                 target = torch.Tensor(trainy[batch_start:batch_stop])
                 loss = self.lossfn(y_pred, target)
                 with torch.no_grad():
-                    train_losses += loss
+                    train_losses += np.float64(loss)
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -63,7 +63,7 @@ class Model():
                 with torch.no_grad():
                     val_pred = self.model(torch.Tensor(data.valx)).squeeze(1)
                     val_true = torch.Tensor(data.valy)
-                    val_loss = self.lossfn(val_pred, val_true)
+                    val_loss = np.float64(self.lossfn(val_pred, val_true))
                     self.val_losses.append(val_loss)
                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}")
@@ -71,7 +71,6 @@ class Model():
     def shuffle(self, datax, datay):
         indices = np.arange(len(datay))
         np.random.shuffle(indices)
-        print(indices)
         return datax[indices], datay[indices]
 
 

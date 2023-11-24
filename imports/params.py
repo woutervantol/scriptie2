@@ -8,27 +8,16 @@ p = {
     "cosmology":"HYDRO_FIDUCIAL",
     "selection_type":"SO/500_crit",
     "selection_type_name":"SO_500crit",
+    
     "resolution":64,
     "obs_radius":2,#Mpc
-    "lr": 0.0001,
-    "nr_channels": 2,
-
-    "base_convolutional_network": [
-        {"type":"conv", "in_channels":2, "out_channels":20, "kernel_size":3, "stride":1, "padding": 1},
-        {"type":"relu"},
-        {"type":"flatten"},
-        {"type":"fc", "in_features":64*64*20, "out_features":1}
-    ],
-
-    "deep_conv_netwerk": [
-        {"type":"conv", "in_channels":2, "out_channels":20, "kernel_size":3, "stride":1, "padding": 1},
-        {"type":"relu"},
-        {"type":"conv", "in_channels":20, "out_channels":20, "kernel_size":3, "stride":1, "padding": 1},
-        {"type":"relu"},
-        {"type":"flatten"},
-        {"type":"fc", "in_features":64*64*20, "out_features":1}
-    ]
+    
+    "nr_epochs":2,
+    "lr":0.00001,
+    "batch_size":16
 }
+
+
 
 
 
