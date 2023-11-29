@@ -1,8 +1,8 @@
 
 p = {
-    "base_flamingo_path":"/net/hypernova/data2/FLAMINGO",
-    "base_data_path":"/net/dodder/data2/tol/obs_data",#"/home/tol/Documents/Thesis/data",
-    "base_model_path":"/home/tol/Documents/Thesis/models",
+    "flamingo_path":"/net/hypernova/data2/FLAMINGO",
+    "data_path":"/net/dodder/data2/tol/obs_data/",#"/home/tol/Documents/Thesis/data",
+    "model_path":"/home/tol/Documents/Thesis/models/",
     "soapfile": "halo_properties_0077.hdf5",
     "simsize":"L1000N1800",
     "cosmology":"HYDRO_FIDUCIAL",
@@ -11,7 +11,11 @@ p = {
     
     "resolution":64,
     "obs_radius":2,#Mpc
+    "nr_uniform_bins_obs_data":20,
+    "channel":"2chan",
     
+    "test_size":0.2,
+    "val_size":0.1,
     "nr_epochs":2,
     "lr":0.00001,
     "batch_size":16

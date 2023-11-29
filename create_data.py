@@ -1,9 +1,13 @@
 from imports.data import Data
 from imports.params import p
+from imports.utility import *
 
+p["resolution"] = 64
+p["obs_radius"] = 2 #Mpc
+p["nr_uniform_bins_obs_data"] = 50
 
 
 sw_path = "flamingo_0077/flamingo_0077.hdf5"
-save_loc = p["base_data_path"] + ""
+filename = p_to_filename(p) + "big"
 data = Data(p, sw_path=sw_path)
-data.create_obs_data(save_loc=save_loc, nr_samples=2000)
+data.generate_obs_data(filename=filename, nr_samples=10000)

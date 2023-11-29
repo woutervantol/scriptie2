@@ -11,8 +11,6 @@ class Data():
         self.sw_path = f"{p_to_path(p)}/snapshots/{sw_path}"
         self.selection_type = p["selection_type"]
         self.p = p
-        self.test_size = 0.2
-        self.val_size = 0.1
 
         self.properties = []
         self.nr_halos = self.soap_file[f"{self.selection_type}/CentreOfMass"].shape[0]
@@ -47,9 +45,9 @@ class Data():
         self.split_data(data_x, data_y)
         
     
-    def make_obs_dataset(self, filepath, channel="2chan", target="TotalMass"):
-        data_x = np.load(f"{filepath}.npy")
-        indices_y = np.load(f"{filepath}_halo_indices.npy")
+    def make_obs_dataset(self, filename, target="TotalMass"):
+        data_x = np.load(self.p["data_path"] + filename + ".npy")
+        indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
         data_y = self.soap_file[f"{self.selection_type}/{target}"][indices_y]
         nonzero = (data_y != 0)
 
@@ -65,9 +63,9 @@ class Data():
         data_x = (data_x - self.mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / self.std_x[np.newaxis, :, np.newaxis, np.newaxis]
         data_y = (data_y - self.mean_y) / self.std_y
         
-        if channel=="low": 
+        if self.p["channel"]=="low": 
             data_x = data_x[:,:1,:,:]
-        elif channel=="high": 
+        elif self.p["channel"]=="high": 
             data_x = data_x[:,1:,:,:]
         else:
             pass
@@ -77,17 +75,18 @@ class Data():
 
 
 
-    def create_obs_data(self, save_loc="", nr_samples=100):
+    def generate_obs_data(self, filename="", nr_samples=100):
         res = self.p['resolution']
         fixed_radius = self.p['obs_radius'] * unyt.Mpc
-        dataset = np.array([])
+        dataset = np.array([]) * unyt.erg/unyt.s
         time_start = time.time()
-        filename = f"obs_data_{p_to_filename(self.p)}_M1e13_rad{self.p['obs_radius']}Mpc"
+        # filename = f"obs_data_{p_to_filename(self.p)}_M1e13_rad{self.p['obs_radius']}Mpc"
 
-        nr_bins = 20
+        nr_bins = self.p["nr_uniform_bins_obs_data"]
         mass_bin_edges = np.logspace(13, 15, nr_bins+1)
         halo_indices = np.sort(self.mass_uniform_halo_indices(mass_bin_edges, nr_samples))
-        np.save(f"{save_loc}/{filename}_halo_indices", halo_indices)
+
+        np.save(self.p["data_path"] + filename + "_halo_indices", halo_indices)
 
         for sample in range(len(halo_indices)):
             mask = sw.mask(self.sw_path)
@@ -126,7 +125,8 @@ class Data():
             blue_flux *= kpc_per_pixel
 
             fluxes = np.append(red_flux, blue_flux).reshape(1, 2, res, res)
-            dataset = np.append(dataset, fluxes, axis=0)
+
+            dataset = np.append(dataset, fluxes).reshape(sample+1, 2, res, res)
 
             # dataset[sample, 0, :, :] = red_flux
             # dataset[sample, 1, :, :] = blue_flux
@@ -135,16 +135,16 @@ class Data():
 
             if sample%100 == 99:
                 #intermediate saving
-                np.save(f"{save_loc}/{filename}", dataset)
+                np.save(self.p["data_path"] + filename, dataset)
         
-        np.save(f"{save_loc}/{filename}", dataset)
+        np.save(self.p["data_path"] + filename, dataset)
 
 
 
     def split_data(self, x, y):
         #[test : val : train]
-        test_split = int(len(x)*self.test_size)
-        val_split = test_split + int(len(x)*self.val_size)
+        test_split = int(len(x)*self.p["test_size"])
+        val_split = test_split + int(len(x)*self.p["val_size"])
         self.testx = x[:test_split]
         self.testy = y[:test_split]
         self.valx = x[test_split:val_split]
@@ -162,6 +162,7 @@ class Data():
     def mass_uniform_halo_indices(self, mass_bin_edges, nr_samples):
         nr_bins = len(mass_bin_edges[:-1])
         halos_per_bin = int(nr_samples / nr_bins)
+        # print("halos per bin", halos_per_bin)
         halo_indices = np.array([], dtype=int)
         masses = self.soap_file[f"{self.selection_type}/TotalMass"][:]
         indices = np.arange(len(masses))
@@ -172,5 +173,6 @@ class Data():
             else:
                 choices = bin_indices
             halo_indices = np.append(halo_indices, choices)
+            # print(len(choices), np.log10(mass_bin_edges[i]), np.log10(mass_bin_edges[i+1]))
 
         return halo_indices

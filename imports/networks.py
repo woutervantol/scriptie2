@@ -6,12 +6,12 @@ import numpy as np
 
 
 class Model():
-    def __init__(self, p, lr=0.001, batch_size=64):
+    def __init__(self, p):
         self.p = p
         self.model = None
         self.optimizer = None
-        self.lr = lr
-        self.batch_size = batch_size
+        self.lr = p["lr"]
+        self.batch_size = p["batch_size"]
         self.lossfn = MSE
         self.epochs = []
         self.losses = []
@@ -25,16 +25,16 @@ class Model():
             torch.nn.Linear(100, 1)
         )
 
-    def set_convolutional_model(self, architecture):
-        self.model = CustomCNN(architecture)
+    def set_convolutional_model(self):
+        self.model = CustomCNN(self.p["architecture"])
 
 
     def set_optimizer(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
 
 
-    def train(self, data, nr_epochs=10, verbose=2):
-        for epoch in range(nr_epochs):
+    def train(self, data, verbose=2):
+        for epoch in range(self.p["nr_epochs"]):
             epoch_start = time.time()
             nr_batches = int(len(data.trainy)/self.batch_size)
             trainx, trainy = self.shuffle(data.trainx, data.trainy)

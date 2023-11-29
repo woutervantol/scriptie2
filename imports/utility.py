@@ -2,7 +2,7 @@
 
 
 def p_to_path(p):
-    return f"{p['base_flamingo_path']}/{p['simsize']}/{p['cosmology']}"
+    return f"{p['flamingo_path']}/{p['simsize']}/{p['cosmology']}"
 
 
 def p_to_filename(p):
