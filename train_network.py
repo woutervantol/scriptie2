@@ -16,8 +16,8 @@ p["architecture"] = get_architecture(use_model, channel=p["channel"])
 
 sw_path = "flamingo_0077/flamingo_0077.hdf5"
 data = Data(p, sw_path=sw_path)
-filename = p_to_filename(p) + "_M1e13_rad2Mpc"
-data.make_obs_dataset(filename=filename, channel=p["channel"], target="TotalMass")
+filename = p_to_filename(p) + "big"
+data.make_nn_dataset(filename=filename, target="TotalMass")
 
 
 model = Model(p)

@@ -45,7 +45,7 @@ class Data():
         self.split_data(data_x, data_y)
         
     
-    def make_obs_dataset(self, filename, target="TotalMass"):
+    def make_nn_dataset(self, filename, target="TotalMass"):
         data_x = np.load(self.p["data_path"] + filename + ".npy")
         indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
         data_y = self.soap_file[f"{self.selection_type}/{target}"][indices_y]
@@ -73,6 +73,10 @@ class Data():
         # data_x, data_y = self.shuffle_data(data_x, data_y)
         self.split_data(data_x, data_y)
 
+    def load_dataset(self, filename):
+        self.images = np.load(self.p["data_path"] + filename + ".npy")
+        self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
+        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][self.indices]
 
 
     def generate_obs_data(self, filename="", nr_samples=100):

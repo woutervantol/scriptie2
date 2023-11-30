@@ -152,12 +152,15 @@ class CustomCNN(torch.nn.Module):
 
             elif layer_type == 'relu':
                 layers.append(torch.nn.ReLU())
-                
+
+            elif layer_type == 'leaky_relu':
+                layers.append(torch.nn.LeakyReLU(l["slope"]))    
+            
             elif layer_type == 'flatten':
                 layers.append(torch.nn.Flatten())
-
-            elif layer_type == 'softmax':
-                layers.append(torch.nn.Softmax(dim=1))
+            
+            elif layer_type == 'dropout':
+                layers.append(torch.nn.Dropout(l["p"]))
 
             else:
                 raise ValueError(f"Unsupported layer type: {layer_type}")
