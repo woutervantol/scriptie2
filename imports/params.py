@@ -17,6 +17,9 @@ p = {
     "val_size":0.2,
     "nr_epochs":2,
     "lr":0.00001,
+    "lrfactor":0.2,
+    "lrpatience":10,
+    "L2":0.01,
     "batch_size":16,
 
     "channel":"2chan",

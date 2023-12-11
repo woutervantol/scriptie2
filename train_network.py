@@ -5,9 +5,11 @@ from imports.utility import *
 from imports.architectures import get_architecture
 
 p["channel"] = "2chan"
-p["lr"] = 0.00001
-p["batch_size"] = 16
-p["nr_epochs"] = 50
+p["lr"] = 0.0001
+p["lrfactor"] = 0.5
+p["lrpatience"] = 10
+p["L2"] = 0.01
+p["nr_epochs"] = 200
 p["use_pooling"]=True
 p["architecture"] = get_architecture(p)
 
@@ -47,7 +49,7 @@ data.make_nn_dataset(filename=filename, target="TotalMass")
 model = Model(p)
 model.set_convolutional_model()
 model.set_optimizer()
-model.train(data)
+model.train(data, verbose=2)
 
 p["trainlosses"] = model.losses
 p["vallosses"] = model.val_losses

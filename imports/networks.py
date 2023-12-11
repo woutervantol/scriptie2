@@ -31,8 +31,8 @@ class Model():
 
 
     def set_optimizer(self):
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=0.2, patience=5)
+        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.p["L2"])
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
 
 
     def train(self, data, verbose=2):
