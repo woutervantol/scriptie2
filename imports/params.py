@@ -12,18 +12,22 @@ p = {
     "resolution":64,
     "obs_radius":2,#Mpc
     "nr_uniform_bins_obs_data":20,
-    "channel":"2chan",
     
-    "test_size":0.2,
-    "val_size":0.1,
+    "test_size":0.1,
+    "val_size":0.2,
     "nr_epochs":2,
     "lr":0.00001,
-    "batch_size":16
+    "batch_size":16,
+
+    "channel":"2chan",
+    "kernel_size":3, #has to be uneven
+    "conv_channels":16,
+    "leaky_slope":0.01,
+    "dropout":0.1,
+    "conv_layers":2,
+    "use_pooling":False,
+    "use_batch_norm":False,
 }
-
-
-
-
 
 
 

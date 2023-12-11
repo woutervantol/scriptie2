@@ -16,6 +16,7 @@ class Model():
         self.epochs = []
         self.losses = []
         self.val_losses = []
+        self.lrs = []
 
 
     def set_linear_model(self, nr_inputs):
@@ -31,6 +32,7 @@ class Model():
 
     def set_optimizer(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
+        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=0.2, patience=5)
 
 
     def train(self, data, verbose=2):
@@ -50,9 +52,16 @@ class Model():
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
+            with torch.no_grad():
+                val_pred = self.model(torch.Tensor(data.valx)).squeeze(1)
+                val_true = torch.Tensor(data.valy)
+                val_loss = np.float64(self.lossfn(val_pred, val_true))
+                self.val_losses.append(val_loss)
+            self.scheduler.step(val_loss)
             
             self.epochs.append(epoch)
             self.losses.append(train_losses/nr_batches)
+            self.lrs.append(self.scheduler._last_lr)
 
 
             if verbose == 0:
@@ -60,11 +69,6 @@ class Model():
             elif verbose == 1:
                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
             elif verbose == 2:
-                with torch.no_grad():
-                    val_pred = self.model(torch.Tensor(data.valx)).squeeze(1)
-                    val_true = torch.Tensor(data.valy)
-                    val_loss = np.float64(self.lossfn(val_pred, val_true))
-                    self.val_losses.append(val_loss)
                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}")
         
@@ -145,10 +149,13 @@ class CustomCNN(torch.nn.Module):
                     skip_connection_indices.append(idx)
 
             elif layer_type == 'pool':
-                layers.append(torch.nn.MaxPool2d(l['kernel_size'], l['stride'], l['padding']))
+                layers.append(torch.nn.MaxPool2d(l['kernel_size'], stride=l['stride'], padding=l['padding']))
 
             elif layer_type == 'fc':
                 layers.append(torch.nn.Linear(l['in_features'], l['out_features']))
+
+            elif layer_type == 'batch_norm':
+                layers.append(torch.nn.BatchNorm2d(l['conv_features']))
 
             elif layer_type == 'relu':
                 layers.append(torch.nn.ReLU())
@@ -173,7 +180,6 @@ class CustomCNN(torch.nn.Module):
             x = layer(x)
             # if layer_idx in self.skip_connection_indices:
             #     skip_connections.append(x)
-
         return x#, skip_connections
 
 

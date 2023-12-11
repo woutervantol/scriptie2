@@ -4,6 +4,7 @@ import swiftsimio as sw
 import time
 import unyt
 from imports.utility import *
+from swiftsimio.visualisation import rotation
 
 class Data():
     def __init__(self, p, sw_path = ""):
@@ -48,11 +49,8 @@ class Data():
     def make_nn_dataset(self, filename, target="TotalMass"):
         data_x = np.load(self.p["data_path"] + filename + ".npy")
         indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        data_y = self.soap_file[f"{self.selection_type}/{target}"][indices_y]
-        nonzero = (data_y != 0)
+        data_y = self.soap_file[f"{self.selection_type}/{target}"][()][indices_y]
 
-        data_x = data_x[nonzero]
-        data_y = data_y[nonzero]
 
         data_x = np.log10(data_x)
         data_y = np.log10(data_y)
@@ -70,71 +68,37 @@ class Data():
         else:
             pass
 
-        # data_x, data_y = self.shuffle_data(data_x, data_y)
         self.split_data(data_x, data_y)
 
     def load_dataset(self, filename):
         self.images = np.load(self.p["data_path"] + filename + ".npy")
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][self.indices]
+        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
+    
+
+    def load_testset(self, filename):
+        self.images = np.load(self.p["data_path"] + filename + ".npy")
+        self.images = self.images[:int(len(self.images)*self.p["test_size"])]
+        self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
+        self.indices = self.indices[:int(len(self.indices)*self.p["test_size"])]
+        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
 
 
     def generate_obs_data(self, filename="", nr_samples=100):
-        res = self.p['resolution']
-        fixed_radius = self.p['obs_radius'] * unyt.Mpc
         dataset = np.array([]) * unyt.erg/unyt.s
         time_start = time.time()
-        # filename = f"obs_data_{p_to_filename(self.p)}_M1e13_rad{self.p['obs_radius']}Mpc"
 
         nr_bins = self.p["nr_uniform_bins_obs_data"]
         mass_bin_edges = np.logspace(13, 15, nr_bins+1)
-        halo_indices = np.sort(self.mass_uniform_halo_indices(mass_bin_edges, nr_samples))
+        halo_indices = self.mass_uniform_halo_indices(mass_bin_edges, nr_samples)
+        np.random.shuffle(halo_indices)
 
         np.save(self.p["data_path"] + filename + "_halo_indices", halo_indices)
 
-        for sample in range(len(halo_indices)):
-            mask = sw.mask(self.sw_path)
-            
-            
-            position = self.soap_file[f"{self.selection_type}/CentreOfMass"][halo_indices[sample]] * unyt.Mpc
-            # radius = self.soap_file[f"{self.selection_type}/SORadius"][halo_indices[sample]] * unyt.Mpc
-            radius = fixed_radius
-            load_box = [[position[0] - radius, position[0] + radius], 
-                        [position[1] - radius, position[1] + radius], 
-                        [position[2] - radius, position[2] + radius]]
-            mask.constrain_spatial(load_box)
-            halo_data = sw.load(self.sw_path, mask=mask)
-            halo_data.gas.red_flux = halo_data.gas.xray_luminosities.erosita_low
-            halo_data.gas.blue_flux = halo_data.gas.xray_luminosities.erosita_high
-            red_flux = sw.visualisation.projection.project_gas(
-                halo_data,
-                resolution=res, 
-                project="red_flux",
-                region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
-                parallel = True
-            )
-            blue_flux = sw.visualisation.projection.project_gas(
-                halo_data,
-                resolution=res, 
-                project="blue_flux", 
-                region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
-                parallel = True
-            )
-            red_flux = np.float64(red_flux)
-            blue_flux = np.float64(blue_flux)
-            red_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
-            blue_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
-            kpc_per_pixel = (2*radius / res)**2
-            red_flux *= kpc_per_pixel
-            blue_flux *= kpc_per_pixel
-
-            fluxes = np.append(red_flux, blue_flux).reshape(1, 2, res, res)
-
-            dataset = np.append(dataset, fluxes).reshape(sample+1, 2, res, res)
-
-            # dataset[sample, 0, :, :] = red_flux
-            # dataset[sample, 1, :, :] = blue_flux
-
+        for sample, halo_index in enumerate(halo_indices):
+            red_flux, blue_flux = self.make_obs(halo_index)
+            fluxes = np.append(red_flux, blue_flux).reshape(1, 2, self.p['resolution'], self.p['resolution'])
+            dataset = np.append(dataset, fluxes).reshape(sample+1, 2, self.p['resolution'], self.p['resolution'])
             print(f"Sample {sample} of {len(halo_indices)} done. Time running: {time.time() - time_start}s")
 
             if sample%100 == 99:
@@ -143,7 +107,79 @@ class Data():
         
         np.save(self.p["data_path"] + filename, dataset)
 
+    def make_obs(self, halo_index):
+            mask = sw.mask(self.sw_path)
+            position = self.soap_file[f"{self.selection_type}/CentreOfMass"][halo_index] * unyt.Mpc
+            radius = self.p['obs_radius'] * unyt.Mpc
+            load_box = [[position[0] - radius, position[0] + radius], 
+                        [position[1] - radius, position[1] + radius], 
+                        [position[2] - radius, position[2] + radius]]
+            mask.constrain_spatial(load_box)
 
+            halo_data = sw.load(self.sw_path, mask=mask)
+            print(dir(halo_data))
+            halo_mask = halo_data.gas.last_agnfeedback_scale_factors < 0.900
+            halo_data.gas.red_flux = halo_data.gas.xray_luminosities.erosita_low
+            halo_data.gas.blue_flux = halo_data.gas.xray_luminosities.erosita_high
+
+
+            red_flux = sw.visualisation.projection.project_gas(
+                halo_data,
+                resolution=self.p['resolution'], 
+                project="red_flux",
+                region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
+                parallel = True,
+                mask = halo_mask
+            )
+            blue_flux = sw.visualisation.projection.project_gas(
+                halo_data,
+                resolution=self.p['resolution'], 
+                project="blue_flux", 
+                region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
+                parallel = True,
+                mask = halo_mask
+            )
+            retries = 0
+            brightest_pixel = np.unravel_index(np.argmax(blue_flux), blue_flux.shape)
+            while brightest_pixel not in np.array([[31, 31], [31, 32], [32, 31], [32, 32]]):
+                retries += 1
+                rotation_center = position.copy()
+                rotation_center.convert_to_units(unyt.Mpc)
+                vector = np.cos(np.random.rand(3)*np.pi)
+                vector /= np.linalg.norm(vector)
+                rotation_matrix = sw.visualisation.rotation.rotation_matrix_from_vector(vector)
+                red_flux = sw.visualisation.projection.project_gas(
+                    halo_data,
+                    resolution=self.p['resolution'], 
+                    project="red_flux",
+                    region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
+                    parallel = True,
+                    mask = halo_mask,
+                    rotation_center=rotation_center,
+                    rotation_matrix=rotation_matrix
+                )
+                blue_flux = sw.visualisation.projection.project_gas(
+                    halo_data,
+                    resolution=self.p['resolution'], 
+                    project="blue_flux", 
+                    region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius],
+                    parallel = True,
+                    mask = halo_mask,
+                    rotation_center=rotation_center,
+                    rotation_matrix=rotation_matrix
+                )
+                brightest_pixel = np.unravel_index(np.argmax(blue_flux), blue_flux.shape)
+
+            red_flux = np.float64(red_flux)
+            blue_flux = np.float64(blue_flux)
+            red_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
+            blue_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
+            kpc_per_pixel = (2*radius / self.p['resolution'])**2
+            red_flux *= kpc_per_pixel
+            blue_flux *= kpc_per_pixel
+            if retries != 0:
+                print(f"Tried {retries+1} times for a correct angle")
+            return red_flux, blue_flux
 
     def split_data(self, x, y):
         #[test : val : train]
@@ -166,7 +202,6 @@ class Data():
     def mass_uniform_halo_indices(self, mass_bin_edges, nr_samples):
         nr_bins = len(mass_bin_edges[:-1])
         halos_per_bin = int(nr_samples / nr_bins)
-        # print("halos per bin", halos_per_bin)
         halo_indices = np.array([], dtype=int)
         masses = self.soap_file[f"{self.selection_type}/TotalMass"][:]
         indices = np.arange(len(masses))
@@ -177,6 +212,5 @@ class Data():
             else:
                 choices = bin_indices
             halo_indices = np.append(halo_indices, choices)
-            # print(len(choices), np.log10(mass_bin_edges[i]), np.log10(mass_bin_edges[i+1]))
 
         return halo_indices
