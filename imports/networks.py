@@ -4,9 +4,9 @@ import time
 import numpy as np
 
 
-
 class Model():
     def __init__(self, p):
+        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.p = p
         self.model = None
         self.optimizer = None
@@ -28,6 +28,7 @@ class Model():
 
     def set_convolutional_model(self):
         self.model = CustomCNN(self.p["architecture"])
+        self.model = self.model.to(self.device)
 
 
     def set_optimizer(self):
@@ -44,24 +45,24 @@ class Model():
             for batch in range(nr_batches):
                 batch_start = batch*self.batch_size
                 batch_stop = (batch+1)*self.batch_size
-                y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop])).squeeze(1)
-                target = torch.Tensor(trainy[batch_start:batch_stop])
+                y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop]).to(self.device)).squeeze(1)
+                target = torch.Tensor(trainy[batch_start:batch_stop]).to(self.device)
                 loss = self.lossfn(y_pred, target)
                 with torch.no_grad():
-                    train_losses += np.float64(loss)
+                    train_losses += np.float64(loss.cpu())
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
             with torch.no_grad():
-                val_pred = self.model(torch.Tensor(data.valx)).squeeze(1)
-                val_true = torch.Tensor(data.valy)
-                val_loss = np.float64(self.lossfn(val_pred, val_true))
+                val_pred = self.model(torch.Tensor(data.valx).to(self.device)).squeeze(1)
+                val_true = torch.Tensor(data.valy).to(self.device)
+                val_loss = np.float64(self.lossfn(val_pred, val_true).cpu())
                 self.val_losses.append(val_loss)
             self.scheduler.step(val_loss)
             
             self.epochs.append(epoch)
             self.losses.append(train_losses/nr_batches)
-            self.lrs.append(self.scheduler._last_lr)
+            self.lrs.append(self.scheduler._last_lr[0])
 
 
             if verbose == 0:
@@ -78,10 +79,10 @@ class Model():
         return datax[indices], datay[indices]
 
 
-    def test(self, data):
-        prediction = self.model(torch.Tensor(data.testx[:64]))
-        print(prediction[:10])
-        print(data.testy[:10])
+    # def test(self, data):
+    #     prediction = self.model(torch.Tensor(data.testx[:64]))
+    #     print(prediction[:10])
+    #     print(data.testy[:10])
 
 
 
@@ -90,9 +91,9 @@ def MSE(pred, true):
 
 
 
-def predict_mass_linear(l, band="low"):
-    poly = np.poly1d(np.load(f"/home/tol/Documents/Thesis/models/linear_fit_{band}_6.npy"))
-    return 10**poly(np.log10(l))
+# def predict_mass_linear(l, band="low"):
+#     poly = np.poly1d(np.load(f"/home/tol/Documents/Thesis/models/linear_fit_{band}_6.npy"))
+#     return 10**poly(np.log10(l))
 
 
 

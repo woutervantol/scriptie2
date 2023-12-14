@@ -1,23 +1,25 @@
 #!/bin/bash
 
-#SBATCH --job-name=test_python_simple
+#SBATCH --job-name=parameter_search
 #SBATCH --output=%x_%j.out
 #SBATCH --mail-user="tol@strw.leidenuniv.nl"
 #SBATCH --mail-type="ALL"
-#SBATCH --mem=100M
-#SBATCH --time=00:05:00
-#SBATCH --partition=testing
+#SBATCH --time=00:40:00
+#SBATCH --partition=testing 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
+#SBATCH --gres=gpu:1
+#SBATCH --mem-per-gpu=600M
 
 module load Python/3.10.8-GCCcore-12.2.0
-source $HOME/Thesis/scriptie2/python_venv_alice/bin/activate
+module load CUDA/12.1.1
+source /home/s2041340/Thesis/python_venv_alice/bin/activate
 
-echo "[$SHELL] #### Starting Python test"
+echo "[$SHELL] #### Starting Python test on $(date)"
 echo "[$SHELL] ## This is $SLURM_JOB_USER on $HOSTNAME and this job has the ID $SLURM_JOB_ID"
 echo "[$SHELL] ## current working directory: "$CWD
 
 
 echo "[$SHELL] ## Run script"
-python $HOME/Thesis/scriptie2/create_data.py
-echo "[$SHELL] ## Script finished"l
+python /home/s2041340/Thesis/scriptie2/train_network.py
+echo "[$SHELL] ## Script finished"

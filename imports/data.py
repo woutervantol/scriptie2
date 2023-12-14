@@ -8,13 +8,13 @@ from swiftsimio.visualisation import rotation
 
 class Data():
     def __init__(self, p, sw_path = ""):
-        self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
+        self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r") if sw_path != "" else ""
         self.sw_path = f"{p_to_path(p)}/snapshots/{sw_path}"
         self.selection_type = p["selection_type"]
         self.p = p
 
         self.properties = []
-        self.nr_halos = self.soap_file[f"{self.selection_type}/CentreOfMass"].shape[0]
+        self.nr_halos = self.soap_file[f"{self.selection_type}/CentreOfMass"].shape[0] if sw_path != "" else ""
 
 
     def add_soap_property(self, path):
@@ -48,9 +48,9 @@ class Data():
     
     def make_nn_dataset(self, filename, target="TotalMass"):
         data_x = np.load(self.p["data_path"] + filename + ".npy")
-        indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        data_y = self.soap_file[f"{self.selection_type}/{target}"][()][indices_y]
-
+        # indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
+        # data_y = self.soap_file[f"{self.selection_type}/{target}"][()][indices_y]
+        data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
 
         data_x = np.log10(data_x)
         data_y = np.log10(data_y)
