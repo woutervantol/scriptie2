@@ -3,22 +3,48 @@ from imports.data import *
 from imports.params import p
 from imports.utility import *
 from imports.architectures import get_architecture
+print("imports done")
 
 p["channel"] = "2chan"
 p["lr"] = 0.0001
 p["lrfactor"] = 0.5
 p["lrpatience"] = 10
-p["L2"] = 0.01
+p["L2"] = 0.0 #0.01
 p["batch_size"] = 64
 p["nr_epochs"] = 200
-p["conv_channels"] = 64
-p["conv_layers"] = 4
+# p["conv_channels"] = 64
+# p["conv_layers"] = 4
 p["leaky_slope"] = 0.0
-p["dropout"] = 0.0
-p["use_pooling"]=False
-p["use_batch_norm"]=False
+# p["dropout"] = 0.0
+# p["use_pooling"]=False
+# p["use_batch_norm"]=False
 p["architecture"] = get_architecture(p)
 
+print("architecture loaded")
+
+p["channel"] = "2chan"
+p["architecture"] = get_architecture(p)
+
+sw_path = "flamingo_0077/flamingo_0077.hdf5"
+data = Data(p, sw_path="")
+filename = p_to_filename(p) + "big2"
+data.make_nn_dataset(filename=filename, target="TotalMass")
+print("dataset made")
+
+model = Model(p)
+model.set_convolutional_model()
+model.set_optimizer()
+model.train(data, verbose=2)
+
+p["trainlosses"] = model.losses
+p["vallosses"] = model.val_losses
+p["lrs"] = model.lrs
+modelname = f"obs_model_" + p['channel'] + "byhand"
+torch.save(model.model, p['model_path'] + modelname + ".pt")
+
+import json
+with open(p['model_path'] + modelname + ".json", 'w') as filepath:
+    json.dump(p, filepath, indent=4)
 
 
 
@@ -63,57 +89,3 @@ p["architecture"] = get_architecture(p)
 #                             print(f"Model {count} done in {time.time() - time_start} seconds")
 #                             print(f"Lowest val loss: {np.min(model.val_losses)}, lowest train loss: {np.min(model.losses)}")
 #                             count += 1
-
-
-
-p["channel"] = "low"
-p["architecture"] = get_architecture(p)
-
-sw_path = "flamingo_0077/flamingo_0077.hdf5"
-data = Data(p, sw_path="")
-filename = p_to_filename(p) + "big2"
-data.make_nn_dataset(filename=filename, target="TotalMass")
-
-model = Model(p)
-model.set_convolutional_model()
-model.set_optimizer()
-model.train(data, verbose=0)
-
-p["trainlosses"] = model.losses
-p["vallosses"] = model.val_losses
-p["lrs"] = model.lrs
-modelname = f"obs_model_" + p['channel']
-torch.save(model.model, p['model_path'] + modelname + ".pt")
-
-import json
-with open(p['model_path'] + modelname + ".json", 'w') as filepath:
-    json.dump(p, filepath, indent=4)
-
-
-
-
-
-
-
-p["channel"] = "high"
-p["architecture"] = get_architecture(p)
-
-sw_path = "flamingo_0077/flamingo_0077.hdf5"
-data = Data(p, sw_path="")
-filename = p_to_filename(p) + "big2"
-data.make_nn_dataset(filename=filename, target="TotalMass")
-
-model = Model(p)
-model.set_convolutional_model()
-model.set_optimizer()
-model.train(data, verbose=0)
-
-p["trainlosses"] = model.losses
-p["vallosses"] = model.val_losses
-p["lrs"] = model.lrs
-modelname = f"obs_model_" + p['channel']
-torch.save(model.model, p['model_path'] + modelname + ".pt")
-
-import json
-with open(p['model_path'] + modelname + ".json", 'w') as filepath:
-    json.dump(p, filepath, indent=4)
