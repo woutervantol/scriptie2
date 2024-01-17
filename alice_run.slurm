@@ -1,10 +1,10 @@
 #!/bin/bash
 
-#SBATCH --job-name=parameter_search
+#SBATCH --job-name=archbyhand
 #SBATCH --output=%x_%j.out
 #SBATCH --mail-user="tol@strw.leidenuniv.nl"
 #SBATCH --mail-type="ALL"
-#SBATCH --time=00:40:00
+#SBATCH --time=01:00:00
 #SBATCH --partition=testing 
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1

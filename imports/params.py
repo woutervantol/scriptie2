@@ -1,10 +1,10 @@
 
 p = {
     "flamingo_path":"/net/hypernova/data2/FLAMINGO",
-    "data_path":"/net/dodder/data2/tol/obs_data/",
-    "model_path":"/home/tol/Documents/Thesis/models/",
-    # "data_path":"/home/s2041340/data1/data/",
-    # "model_path":"/home/s2041340/data1/models/",
+    # "data_path":"/net/dodder/data2/tol/obs_data/",
+    # "model_path":"/home/tol/Documents/Thesis/models/",
+    "data_path":"/home/s2041340/data1/data/",
+    "model_path":"/home/s2041340/data1/models/",
     "soapfile": "halo_properties_0077.hdf5",
     "snapshot":"flamingo_0077/flamingo_0077.hdf5",
     "simsize":"L1000N1800",

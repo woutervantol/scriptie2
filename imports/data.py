@@ -44,8 +44,8 @@ class Data():
         
         data_x, data_y = self.shuffle_data(data_x, data_y)
         self.split_data(data_x, data_y)
-        
-    
+
+
     def make_nn_dataset(self, filename, target="TotalMass"):
         data_x = np.load(self.p["data_path"] + filename + ".npy")
         # indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
