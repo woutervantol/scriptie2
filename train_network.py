@@ -4,26 +4,26 @@ from imports.params import p
 from imports.utility import *
 from imports.architectures import get_architecture
 print("imports done")
+time_start = time.time()
 
 p["channel"] = "2chan"
 p["lr"] = 0.0001
-p["lrfactor"] = 0.5
-p["lrpatience"] = 10
-p["L2"] = 0.0 #0.01
+p["lrfactor"] = 0.2
+p["lrpatience"] = 70
+p["L2"] = 0.003 #0.01
 p["batch_size"] = 64
-p["nr_epochs"] = 200
+p["nr_epochs"] = 500
 # p["conv_channels"] = 64
 # p["conv_layers"] = 4
 p["leaky_slope"] = 0.0
-# p["dropout"] = 0.0
+# p["dropout"] = 0.3
 # p["use_pooling"]=False
 # p["use_batch_norm"]=False
-p["architecture"] = get_architecture(p)
 
+
+p["architecture"] = get_architecture(p)
 print("architecture loaded")
 
-p["channel"] = "2chan"
-p["architecture"] = get_architecture(p)
 
 sw_path = "flamingo_0077/flamingo_0077.hdf5"
 data = Data(p, sw_path="")
@@ -39,14 +39,15 @@ model.train(data, verbose=2)
 p["trainlosses"] = model.losses
 p["vallosses"] = model.val_losses
 p["lrs"] = model.lrs
-modelname = f"obs_model_" + p['channel'] + "byhand"
+modelname = f"obs_model_" + p['channel'] + "lr_test"
 torch.save(model.model, p['model_path'] + modelname + ".pt")
 
 import json
 with open(p['model_path'] + modelname + ".json", 'w') as filepath:
     json.dump(p, filepath, indent=4)
 
-
+print("File name:", modelname)
+print("Time spent: {}s, or {}m".format(time.time() - time_start, (time.time() - time_start)/60))
 
 
 
