@@ -6,6 +6,7 @@ p = {
     # "data_path":"/home/s2041340/data1/data/",
     # "model_path":"/home/s2041340/data1/models/",
     "soapfile": "halo_properties_0077.hdf5",
+    "snapshot":"flamingo_0077/flamingo_0077.hdf5",
     "simsize":"L1000N1800",
     "cosmology":"HYDRO_FIDUCIAL",
     "selection_type":"SO/500_crit",
