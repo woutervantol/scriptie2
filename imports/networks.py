@@ -36,7 +36,7 @@ class Model():
         self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
 
 
-    def train(self, data, verbose=2):
+    def train(self, data="", verbose=2):
         for epoch in range(self.p["nr_epochs"]):
             epoch_start = time.time()
             nr_batches = int(len(data.trainy)/self.batch_size)
@@ -73,60 +73,45 @@ class Model():
                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}")
         
+    
+    
     def shuffle(self, datax, datay):
         indices = np.arange(len(datay))
         np.random.shuffle(indices)
         return datax[indices], datay[indices]
 
-
-    # def test(self, data):
-    #     prediction = self.model(torch.Tensor(data.testx[:64]))
-    #     print(prediction[:10])
-    #     print(data.testy[:10])
-
-
-
 def MSE(pred, true):
     return (pred - true).square().mean()
 
 
-
-# def predict_mass_linear(l, band="low"):
-#     poly = np.poly1d(np.load(f"/home/tol/Documents/Thesis/models/linear_fit_{band}_6.npy"))
-#     return 10**poly(np.log10(l))
-
-
-
-
-
-# class NeuralNetwork(torch.nn.Module):
-#     def __init__(self, p, in_channels=2):
-#         super().__init__()
-#         res = p['resolution']
-#         hidden_channels = 20
-#         kernel = 3
-
-#         self.conv1 = torch.nn.Conv2d(in_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
-#         self.bn1 = torch.nn.BatchNorm2d(hidden_channels)
-#         self.conv2 = torch.nn.Conv2d(hidden_channels, hidden_channels, kernel_size=kernel, padding=int(kernel/2), padding_mode="zeros")
-#         self.bn2 = torch.nn.BatchNorm2d(hidden_channels)
-#         self.flatten = torch.nn.Flatten()
-#         self.out = torch.nn.Linear(res*res*hidden_channels, 1)
-
-#     def forward(self, x):
-#         x = self.conv1(x)
-#         # x = self.bn1(x)
-#         x = F.relu(x)
-
-#         x = self.conv2(x)
-#         # x = self.bn2(x)
-#         x = F.relu(x)
-        
-#         x = self.flatten(x)
-#         x = self.out(x)
-#         return x
-
-
+# def ray_train(config):
+#         for epoch in range(self.p["nr_epochs"]):
+#             epoch_start = time.time()
+#             print(self.batch_size)
+#             nr_batches = int(len(data.trainy)/self.batch_size)
+#             trainx, trainy = self.shuffle(data.trainx, data.trainy)
+#             train_losses = 0
+#             for batch in range(nr_batches):
+#                 batch_start = batch*self.batch_size
+#                 batch_stop = (batch+1)*self.batch_size
+#                 y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop]).to(self.device)).squeeze(1)
+#                 target = torch.Tensor(trainy[batch_start:batch_stop]).to(self.device)
+#                 loss = self.lossfn(y_pred, target)
+#                 with torch.no_grad():
+#                     train_losses += np.float64(loss.cpu())
+#                 self.optimizer.zero_grad()
+#                 loss.backward()
+#                 self.optimizer.step()
+#             with torch.no_grad():
+#                 val_pred = self.model(torch.Tensor(data.valx).to(self.device)).squeeze(1)
+#                 val_true = torch.Tensor(data.valy).to(self.device)
+#                 val_loss = np.float64(self.lossfn(val_pred, val_true).cpu())
+#                 self.val_losses.append(val_loss)
+#             self.scheduler.step(val_loss)
+            
+#             self.epochs.append(epoch)
+#             self.losses.append(train_losses/nr_batches)
+#             self.lrs.append(self.scheduler._last_lr[0])
 
 
 class CustomCNN(torch.nn.Module):

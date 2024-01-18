@@ -21,6 +21,7 @@ class Data():
         self.properties.append(path)
 
     def make_soap_dataset(self, target_property="TotalMass"):
+        #old code
         data_x = np.zeros((self.nr_halos, len(self.properties)))
         for i in range(len(self.properties)):
             data_x[:,i] = self.soap_file[f"{self.selection_type}{self.properties[i]}"]
@@ -58,9 +59,12 @@ class Data():
         self.std_y = np.std(data_y)
         self.mean_x = np.mean(data_x, axis=(0, 2, 3))
         self.mean_y = np.mean(data_y)
+
+        #scale and shift data for better nn training
         data_x = (data_x - self.mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / self.std_x[np.newaxis, :, np.newaxis, np.newaxis]
         data_y = (data_y - self.mean_y) / self.std_y
         
+        #Select the correct image for single channel runs
         if self.p["channel"]=="low": 
             data_x = data_x[:,:1,:,:]
         elif self.p["channel"]=="high": 
@@ -71,12 +75,14 @@ class Data():
         self.split_data(data_x, data_y)
 
     def load_dataset(self, filename):
+        #load all images, indices and masses
         self.images = np.load(self.p["data_path"] + filename + ".npy")
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
         self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
     
 
     def load_testset(self, filename):
+        #load only images, indices and masses from the testset
         self.images = np.load(self.p["data_path"] + filename + ".npy")
         self.images = self.images[:int(len(self.images)*self.p["test_size"])]
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
@@ -85,6 +91,7 @@ class Data():
 
 
     def generate_obs_data(self, filename="", nr_samples=100):
+        #Generate images and corresponding soap indices with log uniform masses
         dataset = np.array([]) * unyt.erg/unyt.s
         time_start = time.time()
         time_last = time.time()
@@ -111,9 +118,10 @@ class Data():
         np.save(self.p["data_path"] + filename, dataset)
 
     def make_obs(self, halo_index, rotate=False):
+            #make a single projected image of XRay luminosity for a halo
             mask = sw.mask(self.sw_path)
             position = self.soap_file[f"{self.selection_type}/CentreOfMass"][halo_index] * unyt.Mpc
-            radius = self.p['obs_radius'] * unyt.Mpc
+            radius = self.p['obs_radius'] * unyt.Mpc #use a fixed "distance" to the object, which 
             load_box = [[position[0] - radius, position[0] + radius], 
                         [position[1] - radius, position[1] + radius], 
                         [position[2] - radius, position[2] + radius]]
@@ -141,6 +149,7 @@ class Data():
                 parallel = True,
                 mask = halo_mask
             )
+            ### retry rotating the object randomly until the brightest pixel is in the middel (to prevent bright pixels from agn injection)
             # retries = 0
             # brightest_pixel = np.unravel_index(np.argmax(blue_flux), blue_flux.shape)
             # while brightest_pixel not in np.array([[31, 31], [31, 32], [32, 31], [32, 32]]):
@@ -172,10 +181,12 @@ class Data():
             #     )
             #     brightest_pixel = np.unravel_index(np.argmax(blue_flux), blue_flux.shape)
 
+            #Convert to float64 since the number is too large for float32
             red_flux = np.float64(red_flux)
             blue_flux = np.float64(blue_flux)
             red_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
             blue_flux.convert_to_units(unyt.erg/unyt.s /unyt.kpc**2)
+            #pixel value is converted to an integrated flux across the region in space inside the pixel instead of a flux density
             kpc_per_pixel = (2*radius / self.p['resolution'])**2
             red_flux *= kpc_per_pixel
             blue_flux *= kpc_per_pixel
@@ -184,6 +195,7 @@ class Data():
             return red_flux, blue_flux
 
     def split_data(self, x, y):
+        #Split the data into test, validation and train set with fractions 0.1:0.2:0.7 
         #[test : val : train]
         test_split = int(len(x)*self.p["test_size"])
         val_split = test_split + int(len(x)*self.p["val_size"])
@@ -196,12 +208,14 @@ class Data():
 
 
     def shuffle_data(self, x, y):
+        #old code
         shuffled_indices = np.arange(len(x))
         np.random.shuffle(shuffled_indices)
         return x[shuffled_indices], y[shuffled_indices]
 
 
     def mass_uniform_halo_indices(self, mass_bin_edges, nr_samples):
+        #select halos from a log uniform mass distribution. If 
         nr_bins = len(mass_bin_edges[:-1])
         halos_per_bin = int(nr_samples / nr_bins)
         halo_indices = np.array([], dtype=int)
