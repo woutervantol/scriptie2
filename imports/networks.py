@@ -141,7 +141,7 @@ class CustomCNN(torch.nn.Module):
                 layers.append(torch.nn.Linear(l['in_features'], l['out_features']))
 
             elif layer_type == 'batch_norm':
-                layers.append(torch.nn.BatchNorm2d(l['nr_features']))
+                layers.append(torch.nn.BatchNorm2d(l['nr_features'], l['momentum']))
             
             elif layer_type == 'batch_norm_1d':
                 layers.append(torch.nn.BatchNorm1d(l['nr_features']))

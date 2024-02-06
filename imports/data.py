@@ -8,13 +8,16 @@ from swiftsimio.visualisation import rotation
 
 class Data():
     def __init__(self, p):
-        self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
+        try:
+            self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
+        except:
+            pass
         self.sw_path = f"{p_to_path(p)}/snapshots/{p['snapshot']}"
         self.selection_type = p["selection_type"]
         self.p = p
 
         self.properties = []
-        self.nr_halos = self.soap_file[f"{self.selection_type}/CentreOfMass"].shape[0]
+        # self.nr_halos = self.soap_file[f"{self.selection_type}/CentreOfMass"].shape[0]
 
 
     def add_soap_property(self, path):
