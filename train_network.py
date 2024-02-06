@@ -3,86 +3,80 @@ from imports.data import *
 from imports.params import p
 from imports.utility import *
 from imports.architectures import get_architecture
-from ray_train import ray_train
-from ray import tune
-from ray.train import RunConfig
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--model", help="Which simulation model to use")
-args = parser.parse_args()
-if args.model:
-    p["cosmology"] = args.model
+
 
 time_start = time.time()
 p["channel"] = "2chan"
-p["lr"] = 0.0001
-p["lrfactor"] = 0.2
-p["lrpatience"] = 70
-p["L2"] = 0.003 #0.01
-p["batch_size"] = 64
-p["nr_epochs"] = 500
-# p["conv_channels"] = 64
-# p["conv_layers"] = 4
-p["leaky_slope"] = 0.0
-# p["dropout"] = 0.3
-# p["use_pooling"]=False
-# p["use_batch_norm"]=False
+p["lrfactor"] = 0.7
+p["lrpatience"] = 10
+p["nr_epochs"] = 300
+
+# p["lr"] = 0.0008
+# p["L2"] = 0.003
+# p["batch_size"] = 512
+# p["convs_per_layer"] = 2
+# p["conv_layers"] = 1
+# p["use_batch_norm"] = False
+# p["leaky_slope"] = 0.0
+# p["base_filters"] = 64
+# p["bn_momentum"] = 0.01
+
+
+from ray import tune
+from tune_search import ray_train
+p["search_alg"] = "Optuna"
+restored_tuner = tune.Tuner.restore(p["ray_log_path"]+"/"+p["search_alg"], trainable=ray_train)
+best_result = restored_tuner.get_results().get_best_result(metric="val loss", mode="min")
+params = ["lr", "L2", "batch_size", "convs_per_layer", "conv_layers", "use_batch_norm", "leaky_slope", "base_filters", "bn_momentum"]
+for param in params:
+    p[param] = best_result.config[param]
 
 
 p["architecture"] = get_architecture(p)
-print("architecture loaded")
+print("architecture: ")
+for layer in p["architecture"]:
+    print(layer)
+print("p: ")
+for key in p:
+    print(key+":", p[key])
 
 
 sw_path = "flamingo_0077/flamingo_0077.hdf5"
 data = Data(p)
 filename = p_to_filename(p) + "big2"
 data.make_nn_dataset(filename=filename, target="TotalMass")
-print("dataset made")
 
 model = Model(p)
 model.set_convolutional_model()
 model.set_optimizer()
 
+model.train(data, verbose=2)
 
+p["trainlosses"] = model.losses
+p["vallosses"] = model.val_losses
+p["lrs"] = model.lrs
+modelname = f"obs_model_" + p['channel'] + "best_bohb"
+torch.save(model.model, p['model_path'] + modelname + ".pt")
 
-config = {
-    "L2": tune.loguniform(0.001, 0.01),
-    "lr": tune.loguniform(0.001, 0.0001),
-    # "batch_size": tune.choice([64, 128, 256, 512]),
-    "batch_size": tune.choice([64]),
-    "leaky_slope": tune.uniform(0, 0.1),
-    "barch_norm": tune.choice([True, False]),
-    "nr_epochs": tune.choice([2])
-}
+import json
+with open(p['model_path'] + modelname + ".json", 'w') as filepath:
+    json.dump(p, filepath, indent=4)
 
-tuner = tune.Tuner(tune.with_resources(tune.with_parameters(ray_train, net=model.model, p=p), resources={"cpu":4}), 
-                    param_space=config, 
-                    tune_config=tune.TuneConfig(metric="val loss", mode="min", num_samples=7, max_concurrent_trials=1),
-                    run_config=RunConfig(storage_path=p["ray_log_path"], name="test", progress_reporter=tune.CLIReporter(max_progress_rows=3)))
-
-results = tuner.fit()
-print(results.get_best_result(metric="val loss", mode="min"))
+print("File name:", modelname)
+print("Time spent: {}s, or {}m".format(time.time() - time_start, (time.time() - time_start)/60))
 
 
 
-# model.train(data, verbose=2)
 
-# p["trainlosses"] = model.losses
-# p["vallosses"] = model.val_losses
-# p["lrs"] = model.lrs
-# modelname = f"obs_model_" + p['channel'] + "lr_test"
-# torch.save(model.model, p['model_path'] + modelname + ".pt")
-
-# import json
-# with open(p['model_path'] + modelname + ".json", 'w') as filepath:
-#     json.dump(p, filepath, indent=4)
-
-# print("File name:", modelname)
-# print("Time spent: {}s, or {}m".format(time.time() - time_start, (time.time() - time_start)/60))
+# import argparse
+# parser = argparse.ArgumentParser()
+# parser.add_argument("-m", "--model", help="Which simulation model to use")
+# args = parser.parse_args()
+# if args.model:
+#     p["cosmology"] = args.model
 
 
-
-#old code, parameter search
+#####old code, parameter search
 # count = 0
 # layers = []
 # for channel in ["2chan", "low", "high"]:

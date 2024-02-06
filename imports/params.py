@@ -1,11 +1,14 @@
 
 p = {
     "flamingo_path":"/net/hypernova/data2/FLAMINGO",
-    "data_path":"/net/dodder/data2/tol/obs_data/",
-    "model_path":"/home/tol/Documents/Thesis/models/",
-    "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
-    # "data_path":"/home/s2041340/data1/data/",
-    # "model_path":"/home/s2041340/data1/models/",
+
+    # "data_path":"/net/dodder/data2/tol/obs_data/",
+    # "model_path":"/home/tol/Documents/Thesis/models/",
+    # "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
+    "data_path":"/home/s2041340/data1/data/",
+    "model_path":"/home/s2041340/data1/models/",
+    "ray_log_path":"/home/s2041340/data1/tune_log",
+
     "soapfile": "halo_properties_0077.hdf5",
     "snapshot":"flamingo_0077/flamingo_0077.hdf5",
     "simsize":"L1000N1800",
@@ -25,15 +28,21 @@ p = {
     "lrpatience":10,
     "L2":0.01,
     "batch_size":16,
+    "bn_momentum":0.1,
 
     "channel":"2chan",
-    "kernel_size":3, #has to be uneven
-    "conv_channels":16,
+    "kernel_size":3, #must be uneven
+    # "conv_channels":16,
+    "base_filters":16,
     "leaky_slope":0.01,
     "dropout":0.1,
     "conv_layers":2,
+    "convs_per_layer":2,
     "use_pooling":False,
     "use_batch_norm":False,
+
+    "search_alg": "BOHB",
+    "time_budget": 60*5, #in seconds
 }
 
 
