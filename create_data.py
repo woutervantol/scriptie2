@@ -9,7 +9,7 @@ p["nr_uniform_bins_obs_data"] = 20
 # p["soapfile"] = "halo_properties_0078.hdf5"
 # p["simsize"] = "L2800N5040"
 # p["snapshot"] = "flamingo_0078/flamingo_0078.hdf5"
-p["cosmology"] = "HYDRO_PLANCK"
+p["cosmology"] = "HYDRO_WEAK_AGN"
 
 filename = p_to_filename(p)
 data = Data(p)

@@ -2,15 +2,16 @@
 p = {
     "flamingo_path":"/net/hypernova/data2/FLAMINGO",
 
-    # "data_path":"/net/dodder/data2/tol/obs_data/",
-    # "model_path":"/home/tol/Documents/Thesis/models/",
-    # "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
-    "data_path":"/home/s2041340/data1/data/",
-    "model_path":"/home/s2041340/data1/models/",
-    "ray_log_path":"/home/s2041340/data1/tune_log",
+    "data_path":"/net/dodder/data2/tol/obs_data/",
+    "model_path":"/home/tol/Documents/Thesis/models/",
+    "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
+    # "data_path":"/home/s2041340/data1/data/",
+    # "model_path":"/home/s2041340/data1/models/",
+    # "ray_log_path":"/home/s2041340/data1/tune_log",
 
     "soapfile": "halo_properties_0077.hdf5",
     "snapshot":"flamingo_0077/flamingo_0077.hdf5",
+    "snapshot_folder": "snapshots",
     "simsize":"L1000N1800",
     "cosmology":"HYDRO_FIDUCIAL",
     "selection_type":"SO/500_crit",
