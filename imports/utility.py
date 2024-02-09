@@ -2,11 +2,11 @@
 
 
 def p_to_path(p):
-    return f"{p['flamingo_path']}/{p['simsize']}/{p['cosmology']}"
+    return f"{p['flamingo_path']}/{p['simsize']}/{p['model']}"
 
 
 def p_to_filename(p):
-    return f"{p['simsize']}_{p['cosmology']}_{p['selection_type_name']}_res{p['resolution']}"
+    return f"{p['simsize']}_{p['model']}_{p['selection_type_name']}_res{p['resolution']}"
 
 
 

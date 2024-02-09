@@ -21,5 +21,5 @@ echo "[$SHELL] ## current working directory: "$CWD
 
 
 echo "[$SHELL] ## Run script"
-python /home/s2041340/Thesis/scriptie2/tune_search.py -m HYDRO_STRONG_AGN
+python /home/s2041340/Thesis/scriptie2/tune_search.py -m HYDRO_WEAK_AGN
 echo "[$SHELL] ## Script finished"

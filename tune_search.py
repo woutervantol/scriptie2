@@ -9,23 +9,26 @@ from imports.architectures import get_architecture
 from ray import tune
 from ray.train import RunConfig
 
-import argparse
-parser = argparse.ArgumentParser()
-parser.add_argument("-m", "--model", help="Which simulation model to use")
-args = parser.parse_args()
-if args.model:
-    p["cosmology"] = args.model
-
 p["channel"] = "2chan"
 p["lrfactor"] = 0.7
 p["lrpatience"] = 10
 p["nr_epochs"] = 300
 p["search_alg"] = "Optuna"
 p["time_budget"] = 60*60*3.9 #3.9h
-# p["cosmology"] = "HYDRO_FIDUCIAL"
+p["model"] = "HYDRO_FIDUCIAL"
+
+import argparse
+parser = argparse.ArgumentParser()
+parser.add_argument("-m", "--model", help="Which simulation model to use")
+parser.add_argument("-c", "--channel", help="Which channel: '2chan', 'low' or 'high'")
+args = parser.parse_args()
+if args.model:
+    p["model"] = args.model
+if args.channel:
+    p["channel"] = args.channel
 
 config = {
-    "lr": tune.loguniform(0.000003, 0.001),
+    "lr": tune.loguniform(0.00003, 0.01),
     "L2": tune.loguniform(0.001, 0.01),
     "batch_size": tune.choice([64, 128, 256, 512]),
     "convs_per_layer": tune.choice([1, 2, 3]),
@@ -87,7 +90,7 @@ def run():
     tuner = tune.Tuner(tune.with_resources(tune.with_parameters(ray_train, p=p), resources={"gpu":1}), 
                         param_space=config, 
                         tune_config=tune.TuneConfig(scheduler=scheduler, search_alg=search_alg, num_samples=1024, max_concurrent_trials=4, time_budget_s=p["time_budget"]),
-                        run_config=RunConfig(storage_path=p["ray_log_path"], name=p["search_alg"]+"_"+p["cosmology"], progress_reporter=tune.CLIReporter(max_progress_rows=3)))
+                        run_config=RunConfig(storage_path=p["ray_log_path"], name=p_to_filename(p)+"_"+p["search_alg"], progress_reporter=tune.CLIReporter(max_progress_rows=3)))
 
     result_grid = tuner.fit()
     best_result = result_grid.get_best_result(metric="val loss", mode="min")
