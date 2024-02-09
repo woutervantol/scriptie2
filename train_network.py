@@ -73,7 +73,7 @@ print("Time spent: {}s, or {}m".format(time.time() - time_start, (time.time() - 
 # parser.add_argument("-m", "--model", help="Which simulation model to use")
 # args = parser.parse_args()
 # if args.model:
-#     p["cosmology"] = args.model
+#     p["model"] = args.model
 
 
 #####old code, parameter search
