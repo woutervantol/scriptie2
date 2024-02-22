@@ -1,15 +1,15 @@
 #!/bin/bash
 
-#SBATCH --job-name=TestBest
+#SBATCH --job-name=Train
 #SBATCH --output=%x_%j.out
 #SBATCH --mail-user="tol@strw.leidenuniv.nl"
 #SBATCH --mail-type="NONE"
-#SBATCH --time=01:00:00
-#SBATCH --partition=testing 
+#SBATCH --time=04:00:00
+#SBATCH --partition=gpu-short
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
-#SBATCH --mem-per-gpu=600M
+#SBATCH --mem=8G
 
 module load Python/3.10.8-GCCcore-12.2.0
 module load CUDA/12.1.1
@@ -21,5 +21,5 @@ echo "[$SHELL] ## current working directory: "$CWD
 
 
 echo "[$SHELL] ## Run script"
-python /home/s2041340/Thesis/scriptie2/train_network.py
+python /home/s2041340/Thesis/scriptie2/train_network.py -m HYDRO_FIDUCIAL
 echo "[$SHELL] ## Script finished"

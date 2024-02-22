@@ -54,8 +54,11 @@ class Model():
                 loss.backward()
                 self.optimizer.step()
             with torch.no_grad():
-                val_pred = self.model(torch.Tensor(data.valx).to(self.device)).squeeze(1)
-                val_true = torch.Tensor(data.valy).to(self.device)
+                indices = np.arange(len(data.valx))
+                max_val_samples = 2000
+                selection = np.random.choice(indices, min(len(data.valx), max_val_samples), replace=False)
+                val_pred = self.model(torch.Tensor(data.valx[selection]).to(self.device)).squeeze(1)
+                val_true = torch.Tensor(data.valy[selection]).to(self.device)
                 val_loss = np.float64(self.lossfn(val_pred, val_true).cpu())
                 self.val_losses.append(val_loss)
             self.scheduler.step(val_loss)
@@ -71,7 +74,7 @@ class Model():
                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
             elif verbose == 2:
                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
-                    print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}")
+                    print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}", flush=True)
         
     
     

@@ -51,10 +51,19 @@ class Data():
 
 
     def make_nn_dataset(self, filename, target="TotalMass"):
-        data_x = np.load(self.p["data_path"] + filename + ".npy")
-        # indices_y = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        # data_y = self.soap_file[f"{self.selection_type}/{target}"][()][indices_y]
-        data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
+        if type(filename) == str:
+            data_x = np.load(p["data_path"] + filename + ".npy")
+            data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
+        elif type(filename) == list:
+            data_x = np.empty((0, 2, self.p["resolution"], self.p["resolution"]))
+            data_y = np.empty((0))
+            for name in filename:
+                data_x = np.append(data_x, np.load(self.p["data_path"] + name + ".npy"), axis=0)
+                data_y = np.append(data_y, np.load(self.p["data_path"] + name + "_masses.npy"), axis=0)
+            shuffled_indices = np.arange(len(data_y))
+            np.random.shuffle(shuffled_indices)
+            data_x = data_x[shuffled_indices]
+            data_y = data_y[shuffled_indices]
 
         data_x = np.log10(data_x)
         data_y = np.log10(data_y)
