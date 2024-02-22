@@ -11,8 +11,8 @@ class Data():
         try:
             self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
         except:
-            pass
-        self.sw_path = f"{p_to_path(p)}/snapshots/{p['snapshot']}"
+            print(f"could not load {p_to_path(p)}/SOAP/{p['soapfile']}")
+        self.sw_path = f"{p_to_path(p)}/{p['snapshot_folder']}/{p['snapshot']}"
         self.selection_type = p["selection_type"]
         self.p = p
 
