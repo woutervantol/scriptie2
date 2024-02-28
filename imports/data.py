@@ -6,6 +6,17 @@ import unyt
 from imports.utility import *
 from swiftsimio.visualisation import rotation
 
+class customDataSet(Dataset):
+    def __init__(self, images, labels):
+        self.images = images
+        self.labels = labels
+
+    def __len__(self):
+        return len(self.labels)
+
+    def __getitem__(self, idx):
+        return self.imges[idx], self.labels[idx]
+
 class Data():
     def __init__(self, p):
         try:
@@ -52,7 +63,7 @@ class Data():
 
     def make_nn_dataset(self, filename, target="TotalMass"):
         if type(filename) == str:
-            data_x = np.load(p["data_path"] + filename + ".npy")
+            data_x = np.load(self.p["data_path"] + filename + ".npy")
             data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
         elif type(filename) == list:
             data_x = np.empty((0, 2, self.p["resolution"], self.p["resolution"]))

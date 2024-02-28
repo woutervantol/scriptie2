@@ -33,10 +33,13 @@ class Model():
 
     def set_optimizer(self):
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.p["L2"])
-        self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
+        gamma = (1./100.)**(1./300.)
+        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma)
+        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
 
 
     def train(self, data="", verbose=2):
+        # dataloader = torch.utils.data.DataLoader()
         for epoch in range(self.p["nr_epochs"]):
             epoch_start = time.time()
             nr_batches = int(len(data.trainy)/self.batch_size)

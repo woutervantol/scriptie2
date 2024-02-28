@@ -7,30 +7,38 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", help="Which simulation model to use")
 parser.add_argument("-c", "--channel", help="Which channel: '2chan', 'low' or 'high'")
+parser.add_argument("-t", "--type", help="Which type of run: 'all', 'all_but', 'single'(default)")
 args = parser.parse_args()
 if args.model:
     p["model"] = args.model
 if args.channel:
     p["channel"] = args.channel
+if args.type:
+    p["simtype"] = args.type
+
+if p["simtype"] != "single":
+    name_addon = "_"+p["simtype"]
+else:
+    name_addon = ""
 
 time_start = time.time()
 
-
+torch.cuda.memory._record_memory_history()
 
 from ray import tune
 from tune_search import ray_train
 p["search_alg"] = "Optuna"
-restored_tuner = tune.Tuner.restore(p["ray_log_path"]+"/"+p_to_filename(p)+"_all", trainable=ray_train)
+restored_tuner = tune.Tuner.restore(p["ray_log_path"]+"/"+p_to_filename(p), trainable=ray_train)
 print(restored_tuner)
-best_result = restored_tuner.get_results().get_best_result(metric="val loss", mode="min", scope="all")
+best_result = restored_tuner.get_results().get_best_result(metric="val loss", mode="min")
 print(best_result)
 params = ["lr", "L2", "batch_size", "convs_per_layer", "conv_layers", "use_batch_norm", "leaky_slope", "base_filters", "bn_momentum"]
 for param in params:
     p[param] = best_result.config[param]
 
 p["lrfactor"] = 0.7
-p["lrpatience"] = 10
-p["nr_epochs"] = 300
+p["lrpatience"] = 30
+p["nr_epochs"] = 10
 
 # p["soapfile"] = "halo_properties_0078.hdf5"
 # p["snapshot"] = "flamingo_0078/flamingo_0078.hdf5"
@@ -51,12 +59,15 @@ for key in p:
 sw_path = "flamingo_0077/flamingo_0077.hdf5"
 data = Data(p)
 filename = []
-# for i in range(1, 6):
-for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-    p_temp = p.copy()
-    p_temp["model"] = model
-    filename.append(p_to_filename(p_temp))
-# filename = p_to_filename(p)
+if p["simtype"] != "single":
+    for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+        if p["simtype"] == "all_but" and model == p["model"]:
+            continue
+        p_temp = p.copy()
+        p_temp["model"] = model
+        filename.append(p_to_filename(p_temp))
+else:
+    filename = p_to_filename(p)
 data.make_nn_dataset(filename=filename, target="TotalMass")
 
 model = Model(p)
@@ -68,8 +79,10 @@ model.train(data, verbose=2)
 p["trainlosses"] = model.losses
 p["vallosses"] = model.val_losses
 p["lrs"] = model.lrs
-modelname = p_to_filename(p) + "_all"
+modelname = p_to_filename(p) + name_addon
 torch.save(model.model, p['model_path'] + modelname + ".pt")
+
+torch.cuda.memory._dump_snapshot("my_memory_snapshot.pickle")
 
 import json
 with open(p['model_path'] + modelname + ".json", 'w') as filepath:
