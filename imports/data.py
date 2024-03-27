@@ -54,14 +54,14 @@ class Data():
 
     def make_nn_dataset(self, filename, target="TotalMass"):
         if type(filename) == str:
-            data_x = np.load(self.p["data_path"] + filename + ".npy")
-            data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
+            data_x = np.load(self.p["data_path"] + filename + "_photons.npy")
+            data_y = np.load(self.p["data_path"] + filename + "_dmmasses.npy")
         elif type(filename) == list:
             data_x = np.empty((0, 2, self.p["resolution"], self.p["resolution"]))
             data_y = np.empty((0))
             for name in filename:
-                data_x = np.append(data_x, np.load(self.p["data_path"] + name + ".npy"), axis=0)
-                data_y = np.append(data_y, np.load(self.p["data_path"] + name + "_masses.npy"), axis=0)
+                data_x = np.append(data_x, np.load(self.p["data_path"] + name + "_photons.npy"), axis=0)
+                data_y = np.append(data_y, np.load(self.p["data_path"] + name + "_dmmasses.npy"), axis=0)
             shuffled_indices = np.arange(len(data_y))
             np.random.shuffle(shuffled_indices)
             data_x = data_x[shuffled_indices]
@@ -97,11 +97,13 @@ class Data():
 
     def load_testset(self, filename):
         ### Load only images, indices and masses from the testset
-        self.images = np.load(self.p["data_path"] + filename + ".npy")
+        self.images = np.load(self.p["data_path"] + filename + "_photons.npy")
         self.images = self.images[:int(len(self.images)*self.p["test_size"])]
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
         self.indices = self.indices[:int(len(self.indices)*self.p["test_size"])]
-        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
+        self.masses = np.load(self.p["data_path"] + filename + "_masses.npy")
+        self.masses = self.masses[:int(len(self.masses)*self.p["test_size"])]
+        # self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
 
 
     def generate_obs_data(self, filename="", nr_samples=100):
