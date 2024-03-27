@@ -4,6 +4,7 @@ p = {
 
     "data_path":"/net/dodder/data2/tol/obs_data/",
     "model_path":"/home/tol/Documents/Thesis/models/",
+    "old_model_path":"/home/tol/Documents/Thesis/models_old/",
     "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
     # "data_path":"/home/s2041340/data1/data/",
     # "model_path":"/home/s2041340/data1/models/",
