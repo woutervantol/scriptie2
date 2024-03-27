@@ -17,6 +17,8 @@ p = {
     "model":"HYDRO_FIDUCIAL",
     "selection_type":"SO/500_crit",
     "selection_type_name":"SO_500crit",
+
+    "simtype":"single",
     
     "resolution":64,
     "obs_radius":2,#Mpc

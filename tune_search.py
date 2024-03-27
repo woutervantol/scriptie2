@@ -13,7 +13,7 @@ from ray.train import RunConfig
 p["lrfactor"] = 0.7
 p["lrpatience"] = 10
 p["search_alg"] = "Optuna"
-p["time_budget"] = 60*60*14.5 #3.9h
+p["time_budget"] = 60*60*3.5
 p["nr_epochs"] = 100
 # p["time_budget"] = 60*10
 # p["model"] = "HYDRO_FIDUCIAL"
@@ -27,11 +27,19 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("-m", "--model", help="Which simulation model to use")
 parser.add_argument("-c", "--channel", help="Which channel: '2chan', 'low' or 'high'")
+parser.add_argument("-t", "--type", help="Which type of run: 'all', 'all_but', 'single'(default)")
 args = parser.parse_args()
 if args.model:
     p["model"] = args.model
 if args.channel:
     p["channel"] = args.channel
+if args.type:
+    p["simtype"] = args.type
+
+if p["simtype"] != "single":
+    name_addon = "_"+p["simtype"]
+else:
+    name_addon = ""
 
 print("p: ")
 for key in p:
@@ -85,9 +93,9 @@ if p["search_alg"] == "BOHB":
 
 if p["search_alg"] == "Optuna":
     from ray.tune.search.optuna import OptunaSearch
-    ### is eigenlijk gewoon TPE, met n_startup_trials=10, n_ei_candidates=24
+    ### OptunaSearch default is gewoon TPE, met n_startup_trials=10, n_ei_candidates=24
     search_alg = OptunaSearch(metric="val loss", mode="min", points_to_evaluate=points_to_evaluate)
-    scheduler = tune.schedulers.MedianStoppingRule(time_attr="time_total_s", metric="val loss", mode="min", grace_period=30)
+    scheduler = tune.schedulers.MedianStoppingRule(time_attr="time_total_s", metric="val loss", mode="min", grace_period=100, min_samples_required=10, min_time_slice=20)
     # scheduler = tune.schedulers.ASHAScheduler(time_attr="training_iteration", metric="val loss", mode="min", max_t=100, grace_period=3)
 
 if p["search_alg"] == "HyperOpt":
@@ -100,8 +108,8 @@ if p["search_alg"] == "HyperOpt":
 def run():
     tuner = tune.Tuner(tune.with_resources(tune.with_parameters(ray_train, p=p), resources={"gpu":1}), 
                         param_space=config, 
-                        tune_config=tune.TuneConfig(scheduler=scheduler, search_alg=search_alg, num_samples=4, time_budget_s=p["time_budget"]),
-                        run_config=RunConfig(storage_path=p["ray_log_path"], name=p_to_filename(p)+"_all", progress_reporter=tune.CLIReporter(max_progress_rows=3)))
+                        tune_config=tune.TuneConfig(scheduler=scheduler, search_alg=search_alg, num_samples=1000, time_budget_s=p["time_budget"]),
+                        run_config=RunConfig(storage_path=p["ray_log_path"], name=p_to_filename(p)+name_addon, progress_reporter=tune.CLIReporter(max_progress_rows=3)))
 
 
     result_grid = tuner.fit()
@@ -130,7 +138,9 @@ def ray_train(config, p):
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = CustomCNN(p["architecture"]).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=config["lr"], weight_decay=config["L2"])
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=p["lrfactor"], patience=p["lrpatience"])
+    gamma = (1./100.)**(1./300.)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma)
+    # scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=p["lrfactor"], patience=p["lrpatience"])
     for epoch in range(p["nr_epochs"]):
         epoch_start = time.time()
         nr_batches = int(len(trainy)/config["batch_size"])
@@ -176,16 +186,18 @@ def ray_get_data(p):
     data_x = np.empty((0, 2, p["resolution"], p["resolution"]))
     data_y = np.empty((0))
     # ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-    for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-        # if p["model"] == model:
-        #     continue
-        p_temp = p.copy()
-        p_temp["model"] = model
-        filename = p_to_filename(p_temp)
-        data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
-        data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
-    # data_x = np.load(p["data_path"] + filename + ".npy")
-    # data_y = np.load(p["data_path"] + filename + "_masses.npy")
+    if p["simtype"] != "single":
+        for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+            if p["simtype"] == "all_but" and p["model"] == model:
+                continue
+            p_temp = p.copy()
+            p_temp["model"] = model
+            filename = p_to_filename(p_temp)
+            data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
+            data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
+    else:
+        data_x = np.load(p["data_path"] + filename + ".npy")
+        data_y = np.load(p["data_path"] + filename + "_masses.npy")
 
     data_x = np.log10(data_x)
     data_y = np.log10(data_y)
