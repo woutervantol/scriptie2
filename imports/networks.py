@@ -2,122 +2,248 @@ import torch
 import torch.nn.functional as F
 import time
 import numpy as np
+from ray import train
+import json
+import ray
+from imports.utility import *
+from imports.architectures import get_architecture
 
+class customDataSet(torch.utils.data.Dataset):
+    def __init__(self, images, labels):
+        self.images = images
+        self.labels = labels
 
-class Model():
-    def __init__(self, p):
-        self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-        self.p = p
-        self.model = None
-        self.optimizer = None
-        self.lr = p["lr"]
-        self.batch_size = p["batch_size"]
-        self.lossfn = MSE
-        self.epochs = []
-        self.losses = []
-        self.val_losses = []
-        self.lrs = []
+    def __len__(self):
+        return len(self.labels)
 
+    def __getitem__(self, idx):
+        return self.images[idx], self.labels[idx]
 
-    def set_linear_model(self, nr_inputs):
-        self.model = torch.nn.Sequential(
-            torch.nn.Linear(nr_inputs, 100),
-            torch.nn.ReLU(),
-            torch.nn.Linear(100, 1)
-        )
+def save_best_model(p, m):
+    name_addon = ""
+    if p["simtype"] != "single":
+        name_addon = "_"+p["simtype"]
+    modelname = p_to_filename(p) + name_addon
+    try:
+        filepath = open(p['model_path']+modelname+".json", 'r')
+        bestjson = json.load(filepath)
+        bestvalloss = np.min(bestjson["vallosses"])
+    except:
+        with open(p['model_path'] + modelname + ".json", 'w') as filepath:
+            json.dump(p, filepath, indent=4)
+        bestvalloss = np.min(p["vallosses"])
+    if p["vallosses"][-1] < bestvalloss:
+        torch.save(m, p["model_path"] + modelname + ".pt")
+        with open(p['model_path'] + modelname + ".json", 'w') as filepath:
+            json.dump(p, filepath, indent=4)
 
-    def set_convolutional_model(self):
-        self.model = CustomCNN(self.p["architecture"])
-        self.model = self.model.to(self.device)
+def train_network(p, verbose=2, report=False):
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    p["architecture"] = get_architecture(p)
+    model = CustomCNN(p["architecture"]).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=p["lr"], weight_decay=p["L2"])
+    gamma = (1e-6/p["lr"])**(1./300.)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma)
+    lossfn = MSE
 
+    trainx, trainy, valx, valy = make_nn_dataset(p)
+    trainloader = torch.utils.data.DataLoader(customDataSet(trainx, trainy), batch_size=p["batch_size"])
+    valloader = torch.utils.data.DataLoader(customDataSet(valx, valy), batch_size=p["batch_size"])
 
-    def set_optimizer(self):
-        self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.p["L2"])
-        gamma = (1./100.)**(1./300.)
-        self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma)
-        # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
-
-
-    def train(self, data="", verbose=2):
-        # dataloader = torch.utils.data.DataLoader()
-        for epoch in range(self.p["nr_epochs"]):
-            epoch_start = time.time()
-            nr_batches = int(len(data.trainy)/self.batch_size)
-            trainx, trainy = self.shuffle(data.trainx, data.trainy)
-            train_losses = 0
-            for batch in range(nr_batches):
-                batch_start = batch*self.batch_size
-                batch_stop = (batch+1)*self.batch_size
-                y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop]).to(self.device)).squeeze(1)
-                target = torch.Tensor(trainy[batch_start:batch_stop]).to(self.device)
-                loss = self.lossfn(y_pred, target)
-                with torch.no_grad():
-                    train_losses += np.float64(loss.cpu())
-                self.optimizer.zero_grad()
-                loss.backward()
-                self.optimizer.step()
+    trainloss_hist = []
+    valloss_hist = []
+    lr_hist = []
+    nr_batches = len(trainloader)
+    nr_valbatches = len(valloader)
+    for epoch in range(p["nr_epochs"]):
+        epoch_start = time.time()
+        train_losses = 0
+        for batch, datapairs in enumerate(trainloader):
+            trainx, trainy = datapairs
+            y_pred = model(trainx.float().to(device)).squeeze(1)
+            y_true = trainy.to(device)
+            loss = lossfn(y_pred, y_true)
             with torch.no_grad():
-                indices = np.arange(len(data.valx))
-                max_val_samples = 2000
-                selection = np.random.choice(indices, min(len(data.valx), max_val_samples), replace=False)
-                val_pred = self.model(torch.Tensor(data.valx[selection]).to(self.device)).squeeze(1)
-                val_true = torch.Tensor(data.valy[selection]).to(self.device)
-                val_loss = np.float64(self.lossfn(val_pred, val_true).cpu())
-                self.val_losses.append(val_loss)
-            self.scheduler.step(val_loss)
-            
-            self.epochs.append(epoch)
-            self.losses.append(train_losses/nr_batches)
-            self.lrs.append(self.scheduler._last_lr[0])
+                train_losses += np.float64(loss.cpu())
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+        val_losses = 0
+        for val_batch, datapairs in enumerate(valloader):
+            valx, valy = datapairs
+            with torch.no_grad():
+                val_pred = model(valx.float().to(device)).squeeze(1)
+                val_true = valy.to(device)
+                val_loss = lossfn(val_pred, val_true)
+                val_losses += np.float64(val_loss.cpu())
+        scheduler.step()
 
+        trainloss_hist.append(train_losses/nr_batches)
+        valloss_hist.append(val_losses/nr_valbatches)
+        lr_hist.append(np.float64(scheduler._last_lr[0]))
+        p["trainlosses"] = trainloss_hist
+        p["vallosses"] = valloss_hist
+        p["lrs"] = lr_hist
 
-            if verbose == 0:
-                pass
-            elif verbose == 1:
+        if report:
+            save_best_model(p, model)
+            train.report({"val loss": val_losses/nr_valbatches, "loss":train_losses/nr_batches})#, checkpoint=ray.train.Checkpoint.from_directory("/home/s2041340/data1/checkpoints/"))
+        if verbose == 0:
+            pass
+        elif verbose == 1:
+            print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
+        elif verbose == 2:
                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
-            elif verbose == 2:
-                    print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
-                    print(f"Validation loss: {val_loss}. Train loss: {train_losses/nr_batches}", flush=True)
-        
+                print(f"Validation loss: {val_losses/nr_valbatches}. Train loss: {train_losses/nr_batches}", flush=True)
     
+    if report:
+        # modelname = p_to_filename(p)
+        # torch.save(model, "/home/s2041340/data1/checkpoints/" + modelname + time.gmtime() + ".pt")
+        # train.report({"val loss": val_losses/nr_valbatches, "loss":train_losses/nr_batches})#, checkpoint=ray.train.Checkpoint.from_directory("/home/s2041340/data1/checkpoints/"))
+        pass
+    else:
+        return model, p
+
+def make_nn_dataset(p):
+    filename =  p_to_filename(p)
+    data_x = np.empty((0, 2, p["resolution"], p["resolution"]))
+    data_y = np.empty((0))
+    if p["simtype"] != "single":
+        for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+            if p["simtype"] == "all_but" and p["model"] == model:
+                continue
+            p_temp = p.copy()
+            p_temp["model"] = model
+            filename = p_to_filename(p_temp)
+            data_x = np.append(data_x, np.load(p["data_path"] + filename + "_photons.npy"), axis=0)
+            data_y = np.append(data_y, np.load(p["data_path"] + filename + "_dmmasses.npy"), axis=0)
+            print(f"{model} loaded", flush=True)
+    else:
+        data_x = np.load(p["data_path"] + filename + "_photons.npy")
+        data_y = np.load(p["data_path"] + filename + "_dmmasses.npy")
+
+    data_x = np.log10(data_x)
+    data_y = np.log10(data_y)
+    std_x = np.std(data_x, axis=(0, 2, 3))
+    std_y = np.std(data_y)
+    mean_x = np.mean(data_x, axis=(0, 2, 3))
+    mean_y = np.mean(data_y)
+
+    #scale and shift data for better nn training
+    data_x = (data_x - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
+    data_y = (data_y - mean_y) / std_y
     
-    def shuffle(self, datax, datay):
-        indices = np.arange(len(datay))
-        np.random.shuffle(indices)
-        return datax[indices], datay[indices]
+    #Select the correct image for single channel runs
+    if p["channel"]=="low": 
+        data_x = data_x[:,:1,:,:]
+    elif p["channel"]=="high": 
+        data_x = data_x[:,1:,:,:]
+    else:
+        pass
+
+    shuffled_indices = np.arange(len(data_y))
+    np.random.shuffle(shuffled_indices)
+    data_x = data_x[shuffled_indices]
+    data_y = data_y[shuffled_indices]
+
+    test_split = int(len(data_y)*p["test_size"])
+    val_split = test_split + int(len(data_y)*p["val_size"])
+    valx = data_x[test_split:val_split]
+    valy = data_y[test_split:val_split]
+    trainx = data_x[val_split:]
+    trainy = data_y[val_split:]
+    
+    return trainx, trainy, valx, valy
+
+
+# class Model():
+#     def __init__(self, p):
+#         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+#         self.p = p
+#         self.model = None
+#         self.optimizer = None
+#         self.lr = p["lr"]
+#         self.batch_size = p["batch_size"]
+#         self.lossfn = MSE
+#         self.epochs = []
+#         self.losses = []
+#         self.val_losses = []
+#         self.lrs = []
+
+
+#     def set_linear_model(self, nr_inputs):
+#         self.model = torch.nn.Sequential(
+#             torch.nn.Linear(nr_inputs, 100),
+#             torch.nn.ReLU(),
+#             torch.nn.Linear(100, 1)
+#         )
+
+#     def set_convolutional_model(self):
+#         self.model = CustomCNN(self.p["architecture"])
+#         self.model = self.model.to(self.device)
+
+
+#     def set_optimizer(self):
+#         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.p["L2"])
+#         gamma = (1./100.)**(1./300.)
+#         self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma)
+#         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
+
+#     def set_trainloader(self, images, labels, valimages, vallabels):
+#         self.trainloader = torch.utils.data.DataLoader(customDataSet(images, labels), batch_size=self.p["batch_size"])
+#         self.valloader = torch.utils.data.DataLoader(customDataSet(valimages, vallabels), batch_size=self.p["batch_size"])
+
+
+#     def train(self, data="", verbose=2):
+#         for epoch in range(self.p["nr_epochs"]):
+#             epoch_start = time.time()
+#             train_losses = 0
+#             for batch, datapairs in enumerate(self.trainloader):
+#                 trainx, trainy = datapairs
+#                 y_pred = self.model(trainx.float().to(self.device)).squeeze(1)
+#                 y_true = trainy.to(self.device)
+#                 loss = self.lossfn(y_pred, y_true)
+#                 with torch.no_grad():
+#                     train_losses += np.float64(loss.cpu())/self.p["batch_size"]
+#                 self.optimizer.zero_grad()
+#                 loss.backward()
+#                 self.optimizer.step()
+#             val_losses = 0
+#             for val_batch, datapairs in enumerate(self.valloader):
+#                 valx, valy = datapairs
+#                 with torch.no_grad():
+#                     val_pred = self.model(valx.float().to(self.device)).squeeze(1)
+#                     val_true = valy.to(self.device)
+#                     val_loss = self.lossfn(val_pred, val_true)
+#                     val_losses += np.float64(val_loss.cpu())/self.p["batch_size"]
+            
+                    
+#             self.scheduler.step(val_loss)
+            
+#             self.epochs.append(epoch)
+#             self.losses.append(train_losses)
+#             self.val_losses.append(val_losses)
+#             self.lrs.append(self.scheduler._last_lr[0])
+#             print(self.p)
+
+#             if verbose == 0:
+#                 pass
+#             elif verbose == 1:
+#                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
+#             elif verbose == 2:
+#                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
+#                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/batch}", flush=True)
+
+
+
+#     def shuffle(self, datax, datay):
+#         indices = np.arange(len(datay))
+#         np.random.shuffle(indices)
+#         return datax[indices], datay[indices]
 
 def MSE(pred, true):
     return (pred - true).square().mean()
 
-
-# def ray_train(config):
-#         for epoch in range(self.p["nr_epochs"]):
-#             epoch_start = time.time()
-#             print(self.batch_size)
-#             nr_batches = int(len(data.trainy)/self.batch_size)
-#             trainx, trainy = self.shuffle(data.trainx, data.trainy)
-#             train_losses = 0
-#             for batch in range(nr_batches):
-#                 batch_start = batch*self.batch_size
-#                 batch_stop = (batch+1)*self.batch_size
-#                 y_pred = self.model(torch.Tensor(trainx[batch_start:batch_stop]).to(self.device)).squeeze(1)
-#                 target = torch.Tensor(trainy[batch_start:batch_stop]).to(self.device)
-#                 loss = self.lossfn(y_pred, target)
-#                 with torch.no_grad():
-#                     train_losses += np.float64(loss.cpu())
-#                 self.optimizer.zero_grad()
-#                 loss.backward()
-#                 self.optimizer.step()
-#             with torch.no_grad():
-#                 val_pred = self.model(torch.Tensor(data.valx).to(self.device)).squeeze(1)
-#                 val_true = torch.Tensor(data.valy).to(self.device)
-#                 val_loss = np.float64(self.lossfn(val_pred, val_true).cpu())
-#                 self.val_losses.append(val_loss)
-#             self.scheduler.step(val_loss)
-            
-#             self.epochs.append(epoch)
-#             self.losses.append(train_losses/nr_batches)
-#             self.lrs.append(self.scheduler._last_lr[0])
 
 
 class CustomCNN(torch.nn.Module):
@@ -150,7 +276,7 @@ class CustomCNN(torch.nn.Module):
                 layers.append(torch.nn.BatchNorm2d(l['nr_features'], l['momentum']))
             
             elif layer_type == 'batch_norm_1d':
-                layers.append(torch.nn.BatchNorm1d(l['nr_features']))
+                layers.append(torch.nn.BatchNorm1d(l['nr_features'], l['momentum']))
 
             elif layer_type == 'relu':
                 layers.append(torch.nn.ReLU())

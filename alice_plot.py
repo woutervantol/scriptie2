@@ -8,7 +8,7 @@ from imports.utility import *
 
 
 l = [["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_JETS_published"],
-["HYDRO_FIDUCIAL", "HYDRO_WEAK_AGN", "HYDRO_STRONG_AGN", "HYDRO_STRONGER_AGN", "HYDRO_STRONGEST_AGN" ],
+["HYDRO_FIDUCIAL", "HYDRO_WEAK_AGN", "HYDRO_STRONG_AGN", "HYDRO_STRONGER_AGN", "HYDRO_STRONGEST_AGN"],
 ["HYDRO_FIDUCIAL", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA"]]
 colors = ["tab:blue", "tab:orange", "tab:green", "tab:red", "tab:purple"]
 names = ["Jets", "fgas", "sn"]

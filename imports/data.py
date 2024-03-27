@@ -6,16 +6,7 @@ import unyt
 from imports.utility import *
 from swiftsimio.visualisation import rotation
 
-class customDataSet(Dataset):
-    def __init__(self, images, labels):
-        self.images = images
-        self.labels = labels
 
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        return self.imges[idx], self.labels[idx]
 
 class Data():
     def __init__(self, p):

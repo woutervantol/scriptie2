@@ -9,7 +9,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
 #SBATCH --gres=gpu:1
-#SBATCH --mem=10G
+#SBATCH --mem=3G
 
 module load Python/3.10.8-GCCcore-12.2.0
 module load CUDA/12.1.1
