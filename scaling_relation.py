@@ -46,8 +46,7 @@ def get_coeffs(p):
         data.load_dataset(filename)
         luminosity = data.soap_file[f"SO/500_crit/XRayPhotonLuminosityWithoutRecentAGNHeating"][:][data.indices]
         mass = data.masses
-
-    print("data loaded")
+    # print("data loaded")
     flux_ratio, fov = get_flux_ratio(p)
     mass = np.log10(mass)
     luminosity = np.log10(luminosity*flux_ratio*p["obs_time"])
@@ -64,46 +63,43 @@ def get_coeffs(p):
     print(coeff2d)
     return coeff2d
 
-    # coeffdict = {}
-    # coeffdict["low"] = {}
-    # coeffdict["low"]["L0"] = coeff2d[0]
-    # coeffdict["low"]["M0"] = coeff2d[1]
-    # coeffdict["low"]["p1"] = coeff2d[2]
-    # coeffdict["low"]["p2"] = coeff2d[3]
-    # coeffdict["high"] = {}
-    # coeffdict["high"]["L0"] = coeff2d[4]
-    # coeffdict["high"]["M0"] = coeff2d[5]
-    # coeffdict["high"]["p1"] = coeff2d[6]
-    # coeffdict["high"]["p2"] = coeff2d[7]
-    # coeffdict["2d"] = {}
-    # coeffdict["2d"]["A1"] = coeff2d[8]
-    # coeffdict["2d"]["A2"] = coeff2d[9]
-
-
+# import json
+# with open(p['model_path'] + "powerlawcoeffs.json", 'r') as filepath:
+#     coeffdict = json.load(filepath)
 
 p["redshift"] = 0.15
-p["simtype"] = "all_but"
-p["model"] = "HYDRO_STRONG_JETS_published"
-print(get_coeffs(p))
 coeffdict = {}
 coeffdict["single"] = {}
-# print(get_coeffs(p))
+coeffdict["all_but"] = {}
 
 p["simtype"]="single"
 print("Single:")
-for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
     print("Begin", model)
     p["model"] = model
-    coeffdict["single"][model] = get_coeffs(p)
+    coeffdict["single"][model] = get_coeffs(p).tolist()
+    
+print(coeffdict)
 
 p["simtype"]="all_but"
 print("All but:")
-for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
     print("Begin", model)
     p["model"] = model
-    coeffdict["single"][model] = get_coeffs(p)
+    coeffdict["all_but"][model] = get_coeffs(p).tolist()
+    
 print(coeffdict)
 
-# import json
-# with open(p['model_path'] + "powerlaw_coeffs_photons.json", 'w') as filepath:
-#     json.dump(all_coeffs, filepath, indent=4)
+p["simtype"] = "all"
+p["model"] = model
+coeffdict["all"] = get_coeffs(p).tolist()
+
+p["simtype"] = "extremes"
+p["model"] = model
+coeffdict["extremes"] = get_coeffs(p).tolist()
+
+print(coeffdict)
+
+import json
+with open(p['model_path'] + "powerlawcoeffs.json", 'w') as filepath:
+    json.dump(coeffdict, filepath, indent=4)

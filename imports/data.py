@@ -7,7 +7,8 @@ from imports.utility import *
 from swiftsimio.visualisation import rotation
 from astropy.cosmology import z_at_value
 import astropy.units as u
-
+import json
+from scipy.ndimage import gaussian_filter
 
 class Data():
     def __init__(self, p):
@@ -263,30 +264,37 @@ class Data():
         return halo_indices
 
 
-    def image_to_observation(self, noise=True, psf=True):
-        flux_ratio, fov = get_flux_ratio(self.p)
-        
-        total_bgd = np.loadtxt(self.p["model_path"]+"bgd.txt", delimiter=",")
-        bgd_low = total_bgd[total_bgd[:,0] < 2.3]
-        bgd_high = total_bgd[total_bgd[:,0] >= 2.3]
-        bgd_low = np.trapz(bgd_low[:,1], bgd_low[:,0]) * self.p["modules"]
-        bgd_high = np.trapz(bgd_high[:,1], bgd_high[:,0]) * self.p["modules"]
+    def add_noise(self, images, noise=True, psf=True):
+        # images = self.images.copy()
+        # flux_ratio, fov = get_flux_ratio(self.p)
+        # total_bgd = np.loadtxt(self.p["model_path"]+"bgd.txt", delimiter=",")
+        filepath = open(self.p['model_path'] + "bgd.json", 'r')
+        bgd = json.load(filepath)
+        fov = bgd["z0"+str(self.p["redshift"])[2:]]["fov"]
+        # bgd_low = total_bgd[total_bgd[:,0] < 2.3]
+        # bgd_high = total_bgd[total_bgd[:,0] >= 2.3]
+        # bgd_low = np.trapz(bgd_low[:,1], bgd_low[:,0]) * self.p["modules"]
+        # bgd_high = np.trapz(bgd_high[:,1], bgd_high[:,0]) * self.p["modules"]
+        # print(bgd_high)
+        # print(bgd_low)
+        # norm_images = self.images / np.sum(self.images, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
+        # photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][self.indices, :2] #/s
+        # images = norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"]
         if noise:
-            norm_images = self.images / np.sum(self.images, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
-            photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][self.indices, :2] #/s
-            photon_counts = np.random.poisson(norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"])
+            print("test1")
+            photon_counts = np.random.poisson(images)
+            print("test2")
             background_noise = np.ones_like(photon_counts, dtype=float)
-            background_noise[:, 0, :, :] *= 1/(64*64)*bgd_low*fov**2*self.p["obs_time"]
-            background_noise[:, 1, :, :] *= 1/(64*64)*bgd_high*fov**2*self.p["obs_time"]
+            background_noise[:, 0, :, :] *= 1/(64*64)*bgd["bgd_low"]*fov**2*self.p["obs_time"]
+            background_noise[:, 1, :, :] *= 1/(64*64)*bgd["bgd_high"]*fov**2*self.p["obs_time"]
+            print("test3")
             background_noise = np.random.poisson(background_noise)
+            print("test4")
             images = background_noise + photon_counts
-        else:
-            norm_images = self.images / np.sum(self.images, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
-            photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][self.indices, :2] #/s
-            images = norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"]
         if psf:
-            from scipy.ndimage import gaussian_filter
             fwhm = 26 / 60 #arcmin
+            print("test5")
             images = gaussian_filter(images, 0.6745*fwhm*(64/fov), axes=(2, 3))
+            print("test6")
         return images
         
