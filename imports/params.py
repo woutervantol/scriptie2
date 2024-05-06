@@ -23,6 +23,10 @@ p = {
     "resolution":64,
     "obs_radius":2,#Mpc
     "nr_uniform_bins_obs_data":20,
+    "redshift":0.15,
+    "diameter":0.36, #m
+    "obs_time":100000.0, #s
+    "modules":7.0,
     
     "test_size":0.1,
     "val_size":0.2,

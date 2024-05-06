@@ -5,16 +5,18 @@ import time
 import unyt
 from imports.utility import *
 from swiftsimio.visualisation import rotation
-
+from astropy.cosmology import z_at_value
+import astropy.units as u
 
 
 class Data():
     def __init__(self, p):
         try:
-            self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/{p['soapfile']}", "r")
+            self.soap_file = h5py.File(f"{p_to_path(p)}/SOAP/halo_properties_00{int(77-20*p['redshift'])}.hdf5", "r")
         except:
-            print(f"could not load {p_to_path(p)}/SOAP/{p['soapfile']}")
-        self.sw_path = f"{p_to_path(p)}/{p['snapshot_folder']}/{p['snapshot']}"
+            print(f"could not load {p_to_path(p)}/SOAP/halo_properties_00{int(77-20*p['redshift'])}.hdf5")
+
+        self.sw_path = f"{p_to_path(p)}/{p['snapshot_folder']}/flamingo_00{int(77-20*p['redshift'])}/flamingo_00{int(77-20*p['redshift'])}.hdf5"
         self.selection_type = p["selection_type"]
         self.p = p
 
@@ -25,7 +27,7 @@ class Data():
     def add_soap_property(self, path):
         self.properties.append(path)
 
-    def make_soap_dataset(self, target_property="TotalMass"):
+    def make_soap_dataset(self, target_property="DarkMatterMass"):
         ### Old code
         data_x = np.zeros((self.nr_halos, len(self.properties)))
         for i in range(len(self.properties)):
@@ -52,7 +54,7 @@ class Data():
         self.split_data(data_x, data_y)
 
 
-    def make_nn_dataset(self, filename, target="TotalMass"):
+    def make_nn_dataset(self, filename, target="DarkMatterMass"):
         if type(filename) == str:
             data_x = np.load(self.p["data_path"] + filename + "_photons.npy")
             data_y = np.load(self.p["data_path"] + filename + "_dmmasses.npy")
@@ -92,18 +94,18 @@ class Data():
         ### Load all images, indices and masses
         self.images = np.load(self.p["data_path"] + filename + ".npy")
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
-    
+        self.masses = np.load(self.p["data_path"] + filename + "_masses.npy")
+
+
 
     def load_testset(self, filename):
         ### Load only images, indices and masses from the testset
-        self.images = np.load(self.p["data_path"] + filename + "_photons.npy")
+        self.images = np.load(self.p["data_path"] + filename + ".npy", )
         self.images = self.images[:int(len(self.images)*self.p["test_size"])]
         self.indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
         self.indices = self.indices[:int(len(self.indices)*self.p["test_size"])]
         self.masses = np.load(self.p["data_path"] + filename + "_masses.npy")
         self.masses = self.masses[:int(len(self.masses)*self.p["test_size"])]
-        # self.masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][self.indices]
 
 
     def generate_obs_data(self, filename="", nr_samples=100):
@@ -124,38 +126,43 @@ class Data():
         halo_indices = self.mass_uniform_halo_indices(mass_bin_edges, nr_samples)
         np.random.shuffle(halo_indices)
         np.save(self.p["data_path"] + filename + "_halo_indices", halo_indices)
-        masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][halo_indices]
+        masses = self.soap_file[f"{self.selection_type}/DarkMatterMass"][()][halo_indices]
         np.save(self.p["data_path"] + filename + "_masses", masses)
 
         for sample, halo_index in enumerate(halo_indices):
-            red_flux, blue_flux, sz_param = self.make_obs(halo_index, rotate=True, sz=True)
+            red_flux, blue_flux = self.make_obs(halo_index, rotate=True, sz=False)
+            # red_flux, blue_flux, sz_param = self.make_obs(halo_index, rotate=True, sz=True)
             fluxes = np.append(red_flux, blue_flux).reshape(1, 2, self.p['resolution'], self.p['resolution'])
             flux_dataset = np.append(flux_dataset, fluxes).reshape(sample+1, 2, self.p['resolution'], self.p['resolution'])
-            sz_dataset = np.append(sz_dataset, sz_param).reshape(sample+1, self.p['resolution'], self.p['resolution'])
+            # sz_dataset = np.append(sz_dataset, sz_param).reshape(sample+1, self.p['resolution'], self.p['resolution'])
             print(f"Sample {sample} of {len(halo_indices)} done. Time running: {(time.time() - time_start)/60: .2f}m. {time.time() - time_last:.2f}s since last")
             time_last = time.time()
 
             if sample%100 == 99:
                 ### intermediate saving
                 np.save(self.p["data_path"] + filename, flux_dataset)
-                np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
+                # np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
                 print(f"Saved {self.p['data_path'] + filename}")
         
         np.save(self.p["data_path"] + filename, flux_dataset)
-        np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
+        # np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
+
+        
 
     def make_obs(self, halo_index, rotate=False, sz=False):
             ### make a single projected image of XRay luminosity for a halo
             mask = sw.mask(self.sw_path)
-            position = self.soap_file[f"{self.selection_type}/CentreOfMass"][halo_index] * unyt.Mpc
-            radius = self.p['obs_radius'] * unyt.Mpc #use a fixed "distance" to the object, which 
+            a = 1/(1+self.p["redshift"])
+            position = self.soap_file[f"{self.selection_type}/CentreOfMass"][halo_index] * unyt.Mpc / a
+            radius = self.p['obs_radius'] * unyt.Mpc #use a fixed fov
             load_box = [[position[0] - radius, position[0] + radius], 
                         [position[1] - radius, position[1] + radius], 
                         [position[2] - radius, position[2] + radius]]
             mask.constrain_spatial(load_box)
-
             halo_data = sw.load(self.sw_path, mask=mask)
-            halo_mask = halo_data.gas.last_agnfeedback_scale_factors < 0.995
+            current_time = halo_data.metadata.cosmology.lookback_time(self.p["redshift"])
+            max_a_allowed = float(1/(1+z_at_value(halo_data.metadata.cosmology.lookback_time, current_time + 15*u.Myr)))
+            halo_mask = halo_data.gas.last_agnfeedback_scale_factors < max_a_allowed
             halo_data.gas.red_flux = halo_data.gas.xray_luminosities.erosita_low
             halo_data.gas.blue_flux = halo_data.gas.xray_luminosities.erosita_high
 
@@ -168,7 +175,7 @@ class Data():
             else:
                 rotation_center = None
                 rotation_matrix = None
-
+            
             red_flux = sw.visualisation.projection.project_gas(
                 halo_data,
                 resolution=self.p['resolution'], 
@@ -200,7 +207,6 @@ class Data():
                     rotation_center=rotation_center,
                     rotation_matrix=rotation_matrix
                 )
-
             ### Convert to float64 since the number is too large for float32
             red_flux = np.float64(red_flux)
             blue_flux = np.float64(blue_flux)
@@ -210,22 +216,14 @@ class Data():
             kpc_per_pixel = (2*radius / self.p['resolution'])**2
             red_flux *= kpc_per_pixel
             blue_flux *= kpc_per_pixel
+            red_flux[np.where(red_flux == 0)] = 1
+            blue_flux[np.where(blue_flux == 0)] = 1
 
             if sz:
                 return red_flux, blue_flux, sz_compton_y
             else:
                 return red_flux, blue_flux
 
-    def generate_mass_data(self, filename=""):
-        try:
-            np.load(self.p["data_path"] + filename + "_masses.npy")
-            print(self.p["data_path"] + filename + "_masses.npy" + " already exists")
-            return
-        except:
-            pass
-        indices = np.load(self.p["data_path"] + filename + "_halo_indices.npy")
-        masses = self.soap_file[f"{self.selection_type}/TotalMass"][()][indices]
-        np.save(self.p["data_path"] + filename + "_masses", masses)
 
     def split_data(self, x, y):
         ### Split the data into test, validation and train set with fractions 0.1:0.2:0.7 
@@ -252,7 +250,7 @@ class Data():
         nr_bins = len(mass_bin_edges[:-1])
         halos_per_bin = int(nr_samples / nr_bins)
         halo_indices = np.array([], dtype=int)
-        masses = self.soap_file[f"{self.selection_type}/TotalMass"][:]
+        masses = self.soap_file[f"{self.selection_type}/DarkMatterMass"][:]
         indices = np.arange(len(masses))
         for i in range(nr_bins):
             bin_indices = indices[np.logical_and(masses > mass_bin_edges[i], masses < mass_bin_edges[i+1])]
@@ -263,3 +261,32 @@ class Data():
             halo_indices = np.append(halo_indices, choices)
 
         return halo_indices
+
+
+    def image_to_observation(self, noise=True, psf=True):
+        flux_ratio, fov = get_flux_ratio(self.p)
+        
+        total_bgd = np.loadtxt(self.p["model_path"]+"bgd.txt", delimiter=",")
+        bgd_low = total_bgd[total_bgd[:,0] < 2.3]
+        bgd_high = total_bgd[total_bgd[:,0] >= 2.3]
+        bgd_low = np.trapz(bgd_low[:,1], bgd_low[:,0]) * self.p["modules"]
+        bgd_high = np.trapz(bgd_high[:,1], bgd_high[:,0]) * self.p["modules"]
+        if noise:
+            norm_images = self.images / np.sum(self.images, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
+            photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][self.indices, :2] #/s
+            photon_counts = np.random.poisson(norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"])
+            background_noise = np.ones_like(photon_counts, dtype=float)
+            background_noise[:, 0, :, :] *= 1/(64*64)*bgd_low*fov**2*self.p["obs_time"]
+            background_noise[:, 1, :, :] *= 1/(64*64)*bgd_high*fov**2*self.p["obs_time"]
+            background_noise = np.random.poisson(background_noise)
+            images = background_noise + photon_counts
+        else:
+            norm_images = self.images / np.sum(self.images, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
+            photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][self.indices, :2] #/s
+            images = norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"]
+        if psf:
+            from scipy.ndimage import gaussian_filter
+            fwhm = 26 / 60 #arcmin
+            images = gaussian_filter(images, 0.6745*fwhm*(64/fov), axes=(2, 3))
+        return images
+        

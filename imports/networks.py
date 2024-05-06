@@ -4,7 +4,6 @@ import time
 import numpy as np
 from ray import train
 import json
-import ray
 from imports.utility import *
 from imports.architectures import get_architecture
 
@@ -155,95 +154,8 @@ def make_nn_dataset(p):
     
     return trainx, trainy, valx, valy
 
-
-# class Model():
-#     def __init__(self, p):
-#         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-#         self.p = p
-#         self.model = None
-#         self.optimizer = None
-#         self.lr = p["lr"]
-#         self.batch_size = p["batch_size"]
-#         self.lossfn = MSE
-#         self.epochs = []
-#         self.losses = []
-#         self.val_losses = []
-#         self.lrs = []
-
-
-#     def set_linear_model(self, nr_inputs):
-#         self.model = torch.nn.Sequential(
-#             torch.nn.Linear(nr_inputs, 100),
-#             torch.nn.ReLU(),
-#             torch.nn.Linear(100, 1)
-#         )
-
-#     def set_convolutional_model(self):
-#         self.model = CustomCNN(self.p["architecture"])
-#         self.model = self.model.to(self.device)
-
-
-#     def set_optimizer(self):
-#         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr, weight_decay=self.p["L2"])
-#         gamma = (1./100.)**(1./300.)
-#         self.scheduler = torch.optim.lr_scheduler.ExponentialLR(self.optimizer, gamma)
-#         # self.scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(self.optimizer, mode="min", factor=self.p["lrfactor"], patience=self.p["lrpatience"])
-
-#     def set_trainloader(self, images, labels, valimages, vallabels):
-#         self.trainloader = torch.utils.data.DataLoader(customDataSet(images, labels), batch_size=self.p["batch_size"])
-#         self.valloader = torch.utils.data.DataLoader(customDataSet(valimages, vallabels), batch_size=self.p["batch_size"])
-
-
-#     def train(self, data="", verbose=2):
-#         for epoch in range(self.p["nr_epochs"]):
-#             epoch_start = time.time()
-#             train_losses = 0
-#             for batch, datapairs in enumerate(self.trainloader):
-#                 trainx, trainy = datapairs
-#                 y_pred = self.model(trainx.float().to(self.device)).squeeze(1)
-#                 y_true = trainy.to(self.device)
-#                 loss = self.lossfn(y_pred, y_true)
-#                 with torch.no_grad():
-#                     train_losses += np.float64(loss.cpu())/self.p["batch_size"]
-#                 self.optimizer.zero_grad()
-#                 loss.backward()
-#                 self.optimizer.step()
-#             val_losses = 0
-#             for val_batch, datapairs in enumerate(self.valloader):
-#                 valx, valy = datapairs
-#                 with torch.no_grad():
-#                     val_pred = self.model(valx.float().to(self.device)).squeeze(1)
-#                     val_true = valy.to(self.device)
-#                     val_loss = self.lossfn(val_pred, val_true)
-#                     val_losses += np.float64(val_loss.cpu())/self.p["batch_size"]
-            
-                    
-#             self.scheduler.step(val_loss)
-            
-#             self.epochs.append(epoch)
-#             self.losses.append(train_losses)
-#             self.val_losses.append(val_losses)
-#             self.lrs.append(self.scheduler._last_lr[0])
-#             print(self.p)
-
-#             if verbose == 0:
-#                 pass
-#             elif verbose == 1:
-#                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
-#             elif verbose == 2:
-#                     print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
-#                     print(f"Validation loss: {val_loss}. Train loss: {train_losses/batch}", flush=True)
-
-
-
-#     def shuffle(self, datax, datay):
-#         indices = np.arange(len(datay))
-#         np.random.shuffle(indices)
-#         return datax[indices], datay[indices]
-
 def MSE(pred, true):
     return (pred - true).square().mean()
-
 
 
 class CustomCNN(torch.nn.Module):
