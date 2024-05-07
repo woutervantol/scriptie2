@@ -11,11 +11,12 @@ p["redshift"] = 0.15
 # p["soapfile"] = "halo_properties_0078.hdf5"
 # p["simsize"] = "L2800N5040"
 # p["snapshot"] = "flamingo_0078/flamingo_0078.hdf5"
-p["model"] = "HYDRO_STRONG_JETS_published"
+p["model"] = "HYDRO_FIDUCIAL"
 
-filename = p_to_filename(p)
-data = Data(p)
-data.generate_obs_data(filename=filename, nr_samples=10000)
+for i in range(2, 6):
+    filename = p_to_filename(p)+str(i)
+    data = Data(p)
+    data.generate_obs_data(filename=filename, nr_samples=10000)
 # data.generate_mass_data(filename=filename)
 
 # filename = p_to_filename(p) + "2"

@@ -45,7 +45,7 @@ def train_network(p, verbose=2, report=False):
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma)
     lossfn = MSE
 
-    trainx, trainy, valx, valy = make_nn_dataset(p)
+    _, _, trainx, trainy, valx, valy, _, _, _, _ = make_nn_dataset(p)
     trainloader = torch.utils.data.DataLoader(customDataSet(trainx, trainy), batch_size=p["batch_size"])
     valloader = torch.utils.data.DataLoader(customDataSet(valx, valy), batch_size=p["batch_size"])
 
@@ -94,7 +94,7 @@ def train_network(p, verbose=2, report=False):
         elif verbose == 2:
                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                 print(f"Validation loss: {val_losses/nr_valbatches}. Train loss: {train_losses/nr_batches}", flush=True)
-    
+
     if report:
         # modelname = p_to_filename(p)
         # torch.save(model, "/home/s2041340/data1/checkpoints/" + modelname + time.gmtime() + ".pt")
@@ -105,58 +105,141 @@ def train_network(p, verbose=2, report=False):
 
 def make_nn_dataset(p):
     filename =  p_to_filename(p)
-    data_x = np.empty((0, 2, p["resolution"], p["resolution"]))
-    data_y = np.empty((0))
-    if p["simtype"] != "single":
+    testx = np.empty((0, 2, p["resolution"], p["resolution"]))
+    testy = np.empty((0))
+    valx = np.empty((0, 2, p["resolution"], p["resolution"]))
+    valy = np.empty((0))
+    trainx = np.empty((0, 2, p["resolution"], p["resolution"]))
+    trainy = np.empty((0))
+    if p["simtype"] == "single":
+        data_x = np.load(p["data_path"] + filename + ".npy")
+        data_y = np.load(p["data_path"] + filename + "_masses.npy")
+        test_split = int(len(data_y)*p["test_size"])
+        val_split = test_split + int(len(data_y)*p["val_size"])
+        testx = data_x[:test_split]
+        testy = data_y[:test_split]
+        valx = data_x[test_split:val_split]
+        valy = data_y[test_split:val_split]
+        trainx = data_x[val_split:]
+        trainy = data_y[val_split:]
+    elif p["simtype"] == "extremes":
+        for model in ["HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+            p_temp = p.copy()
+            p_temp["model"] = model
+            filename = p_to_filename(p_temp)
+            data_x = np.load(p["data_path"] + filename + ".npy")
+            data_y = np.load(p["data_path"] + filename + "_masses.npy")
+            test_split = int(len(data_y)*p["test_size"])
+            val_split = test_split + int(len(data_y)*p["val_size"])
+            testx = np.append(testx, data_x[:test_split], axis=0)
+            testy = np.append(testy, data_y[:test_split], axis=0)
+            valx = np.append(valx, data_x[test_split:val_split], axis=0)
+            valy = np.append(valy, data_y[test_split:val_split], axis=0)
+            trainx = np.append(trainx, data_x[val_split:], axis=0)
+            trainy = np.append(trainy, data_y[val_split:], axis=0)
+    else:
         for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
             if p["simtype"] == "all_but" and p["model"] == model:
                 continue
             p_temp = p.copy()
             p_temp["model"] = model
             filename = p_to_filename(p_temp)
-            data_x = np.append(data_x, np.load(p["data_path"] + filename + "_photons.npy"), axis=0)
-            data_y = np.append(data_y, np.load(p["data_path"] + filename + "_dmmasses.npy"), axis=0)
-            print(f"{model} loaded", flush=True)
-    else:
-        data_x = np.load(p["data_path"] + filename + "_photons.npy")
-        data_y = np.load(p["data_path"] + filename + "_dmmasses.npy")
+            data_x = np.load(p["data_path"] + filename + ".npy")
+            data_y = np.load(p["data_path"] + filename + "_masses.npy")
+            test_split = int(len(data_y)*p["test_size"])
+            val_split = test_split + int(len(data_y)*p["val_size"])
+            testx = np.append(testx, data_x[:test_split], axis=0)
+            testy = np.append(testy, data_y[:test_split], axis=0)
+            valx = np.append(valx, data_x[test_split:val_split], axis=0)
+            valy = np.append(valy, data_y[test_split:val_split], axis=0)
+            trainx = np.append(trainx, data_x[val_split:], axis=0)
+            trainy = np.append(trainy, data_y[val_split:], axis=0)
+    # data_x = np.empty((0, 2, p["resolution"], p["resolution"]))
+    # data_y = np.empty((0))
+    # if p["simtype"] == "single":
+    #     data_x = np.load(p["data_path"] + filename + ".npy")
+    #     data_y = np.load(p["data_path"] + filename + "_masses.npy")
+    # elif p["simtype"] == "extremes":
+    #     for model in ["HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+    #         p_temp = p.copy()
+    #         p_temp["model"] = model
+    #         filename = p_to_filename(p_temp)
+    #         data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
+    #         data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
+    #         print(f"{model} loaded", flush=True)
+    # else:
+    #     for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+    #         if p["simtype"] == "all_but" and p["model"] == model:
+    #             continue
+    #         p_temp = p.copy()
+    #         p_temp["model"] = model
+    #         filename = p_to_filename(p_temp)
+    #         data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
+    #         data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
+    #         print(f"{model} loaded", flush=True)
 
-    data_x = np.log10(data_x)
-    data_y = np.log10(data_y)
-    std_x = np.std(data_x, axis=(0, 2, 3))
-    std_y = np.std(data_y)
-    mean_x = np.mean(data_x, axis=(0, 2, 3))
-    mean_y = np.mean(data_y)
+
+    shuffled_indices = np.arange(len(testy))
+    np.random.shuffle(shuffled_indices)
+    testx = testx[shuffled_indices]
+    testy = testy[shuffled_indices]
+    shuffled_indices = np.arange(len(valy))
+    np.random.shuffle(shuffled_indices)
+    valx = valx[shuffled_indices]
+    valy = valy[shuffled_indices]
+    shuffled_indices = np.arange(len(trainy))
+    np.random.shuffle(shuffled_indices)
+    trainx = trainx[shuffled_indices]
+    trainy = trainy[shuffled_indices]
+
+    testx = np.log10(testx)
+    testy = np.log10(testy)
+    valx = np.log10(valx)
+    valy = np.log10(valy)
+    trainx = np.log10(trainx)
+    trainy = np.log10(trainy)
+
+    std_x = np.std(trainx, axis=(0, 2, 3))
+    std_y = np.std(trainy)
+    mean_x = np.mean(trainx, axis=(0, 2, 3))
+    mean_y = np.mean(trainy)
 
     #scale and shift data for better nn training
-    data_x = (data_x - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
-    data_y = (data_y - mean_y) / std_y
-    
+    testx = (testx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
+    testy = (testy - mean_y) / std_y
+    valx = (valx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
+    valy = (valy - mean_y) / std_y
+    trainx = (trainx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
+    trainy = (trainy - mean_y) / std_y
+
     #Select the correct image for single channel runs
     if p["channel"]=="low": 
-        data_x = data_x[:,:1,:,:]
+        testx = testx[:,:1,:,:]
+        valx = valx[:,:1,:,:]
+        trainx = trainx[:,:1,:,:]
     elif p["channel"]=="high": 
-        data_x = data_x[:,1:,:,:]
+        testx = testx[:,1:,:,:]
+        valx = valx[:,1:,:,:]
+        trainx = trainx[:,1:,:,:]
     else:
         pass
 
-    shuffled_indices = np.arange(len(data_y))
-    np.random.shuffle(shuffled_indices)
-    data_x = data_x[shuffled_indices]
-    data_y = data_y[shuffled_indices]
+    # test_split = int(len(data_y)*p["test_size"])
+    # val_split = test_split + int(len(data_y)*p["val_size"])
+    # testx = data_x[:test_split]
+    # testy = data_y[:test_split]
+    # valx = data_x[test_split:val_split]
+    # valy = data_y[test_split:val_split]
+    # trainx = data_x[val_split:]
+    # trainy = data_y[val_split:]
 
-    test_split = int(len(data_y)*p["test_size"])
-    val_split = test_split + int(len(data_y)*p["val_size"])
-    valx = data_x[test_split:val_split]
-    valy = data_y[test_split:val_split]
-    trainx = data_x[val_split:]
-    trainy = data_y[val_split:]
-    
-    return trainx, trainy, valx, valy
+    return testx, testy, trainx, trainy, valx, valy, mean_x, mean_y, std_x, std_y
 
 def MSE(pred, true):
     return (pred - true).square().mean()
 
+def RMSE(pred, true):
+    return (pred - true).square().mean().sqrt()
 
 class CustomCNN(torch.nn.Module):
     def __init__(self, architecture):

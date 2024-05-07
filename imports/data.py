@@ -9,6 +9,7 @@ from astropy.cosmology import z_at_value
 import astropy.units as u
 import json
 from scipy.ndimage import gaussian_filter
+from imports.networks import *
 
 class Data():
     def __init__(self, p):
@@ -50,22 +51,23 @@ class Data():
         self.mean_y = np.mean(data_y)
         data_x = (data_x - self.mean_x) / self.std_x
         data_y = (data_y - self.mean_y) / self.std_y
-        
+
         data_x, data_y = self.shuffle_data(data_x, data_y)
         self.split_data(data_x, data_y)
 
 
     def make_nn_dataset(self, filename, target="DarkMatterMass"):
         if type(filename) == str:
-            data_x = np.load(self.p["data_path"] + filename + "_photons.npy")
-            data_y = np.load(self.p["data_path"] + filename + "_dmmasses.npy")
+            data_x = np.load(self.p["data_path"] + filename + ".npy")
+            data_y = np.load(self.p["data_path"] + filename + "_masses.npy")
         elif type(filename) == list:
             data_x = np.empty((0, 2, self.p["resolution"], self.p["resolution"]))
             data_y = np.empty((0))
             for name in filename:
-                data_x = np.append(data_x, np.load(self.p["data_path"] + name + "_photons.npy"), axis=0)
-                data_y = np.append(data_y, np.load(self.p["data_path"] + name + "_dmmasses.npy"), axis=0)
+                data_x = np.append(data_x, np.load(self.p["data_path"] + name + ".npy"), axis=0)
+                data_y = np.append(data_y, np.load(self.p["data_path"] + name + "_masses.npy"), axis=0)
             shuffled_indices = np.arange(len(data_y))
+            np.random.seed(0)
             np.random.shuffle(shuffled_indices)
             data_x = data_x[shuffled_indices]
             data_y = data_y[shuffled_indices]
@@ -118,7 +120,7 @@ class Data():
         except:
             pass
         flux_dataset = np.array([]) * unyt.erg/unyt.s
-        sz_dataset = np.array([])
+        # sz_dataset = np.array([])
         time_start = time.time()
         time_last = time.time()
 
@@ -145,7 +147,12 @@ class Data():
                 # np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
                 print(f"Saved {self.p['data_path'] + filename}")
         
-        np.save(self.p["data_path"] + filename, flux_dataset)
+        flux_ratio, fov = get_flux_ratio(self.p)
+        norm_images = flux_dataset / np.sum(flux_dataset, axis=(2, 3))[:,:,np.newaxis, np.newaxis]
+        photon_luminosities = self.soap_file[f"{self.p['selection_type']}/XRayPhotonLuminosityWithoutRecentAGNHeating"][()][halo_indices, :2] #/s
+        images = norm_images * photon_luminosities[:, :, np.newaxis, np.newaxis] * flux_ratio * self.p["obs_time"]
+
+        np.save(self.p["data_path"] + filename, images)
         # np.save(self.p["data_path"] + filename + "_sz", sz_dataset)
 
         
@@ -237,13 +244,6 @@ class Data():
         self.valy = y[test_split:val_split]
         self.trainx = x[val_split:]
         self.trainy = y[val_split:]
-
-
-    def shuffle_data(self, x, y):
-        ### old code
-        shuffled_indices = np.arange(len(x))
-        np.random.shuffle(shuffled_indices)
-        return x[shuffled_indices], y[shuffled_indices]
 
 
     def mass_uniform_halo_indices(self, mass_bin_edges, nr_samples):
