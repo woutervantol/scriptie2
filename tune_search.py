@@ -28,15 +28,17 @@ if p["simtype"] != "single":
     name_addon = "_"+p["simtype"]
 else:
     name_addon = ""
+if p["channel"] != "2chan":
+    name_addon += "_"+p["channel"]
 
 p["search_alg"] = "Optuna"
 # p["time_budget"] = 60*60*3.5
 p["nr_epochs"] = 300
 
-# p["soapfile"] = "halo_properties_0078.hdf5"
-# p["snapshot"] = "flamingo_0078/flamingo_0078.hdf5"
-# p["snapshot_folder"] = "snapshots_reduced"
-# p["simsize"] = "L2800N5040"
+p["soapfile"] = "halo_properties_0078.hdf5"
+p["snapshot"] = "flamingo_0078/flamingo_0078.hdf5"
+p["snapshot_folder"] = "snapshots_reduced"
+p["simsize"] = "L2800N5040"
 
 
 print("p: ")
@@ -80,7 +82,7 @@ if p["search_alg"] == "Optuna":
     ### OptunaSearch default is gewoon TPE, met n_startup_trials=10, n_ei_candidates=24
     search_alg = OptunaSearch(metric="val loss", mode="min", points_to_evaluate=points_to_evaluate)
     # scheduler = tune.schedulers.MedianStoppingRule(time_attr="time_total_s", metric="val loss", mode="min", grace_period=10, hard_stop=True, min_samples_required=3)
-    scheduler = tune.schedulers.ASHAScheduler(time_attr="time_total_s", metric="val loss", mode="min", max_t=1000, grace_period=100)
+    scheduler = tune.schedulers.ASHAScheduler(time_attr="time_total_s", metric="val loss", mode="min", max_t=800, grace_period=100)
 
 # if p["search_alg"] == "HyperOpt":
 #     from ray.tune.search.hyperopt import HyperOpt
