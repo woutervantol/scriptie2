@@ -2,13 +2,13 @@
 p = {
     "flamingo_path":"/net/hypernova/data2/FLAMINGO",
 
-    "data_path":"/net/dodder/data2/tol/obs_data/",
-    "model_path":"/home/tol/Documents/Thesis/models/",
-    "old_model_path":"/home/tol/Documents/Thesis/models_old/",
-    "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
-    # "data_path":"/home/s2041340/data1/data/",
-    # "model_path":"/home/s2041340/data1/models/",
-    # "ray_log_path":"/home/s2041340/data1/tune_log",
+    # "data_path":"/net/dodder/data2/tol/obs_data/",
+    # "model_path":"/home/tol/Documents/Thesis/models/",
+    # "old_model_path":"/home/tol/Documents/Thesis/models_old/",
+    # "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
+    "data_path":"/home/s2041340/data1/data/",
+    "model_path":"/home/s2041340/data1/models/",
+    "ray_log_path":"/home/s2041340/data1/tune_log",
 
     "soapfile": "halo_properties_0077.hdf5",
     "snapshot":"flamingo_0077/flamingo_0077.hdf5",
@@ -19,6 +19,7 @@ p = {
     "selection_type_name":"SO_500crit",
 
     "simtype":"single",
+    "noisy":False,
     
     "resolution":64,
     "obs_radius":2,#Mpc

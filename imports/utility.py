@@ -52,6 +52,7 @@ def load_nn_dataset(p, shuffled=False):
     trainx = []
     trainy = []
     for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+        print(f"loading {model}", flush=True)
         if p["simtype"] == "all_but" and model == p["model"]:
             continue
         if p["simtype"] == "single" and model != p["model"]:
@@ -61,7 +62,7 @@ def load_nn_dataset(p, shuffled=False):
         p_temp = p.copy()
         p_temp["model"] = model
         filename = p_to_filename(p_temp)
-        data_x = np.load(p["data_path"] + filename + ".npy")
+        data_x = np.load(p["data_path"] + filename + ".npy") if p["noisy"] == False else np.load(p["data_path"] + filename + "_noisy.npy")
         data_y = np.load(p["data_path"] + filename + "_masses.npy")
         test_split = int(len(data_y)*p["test_size"])
         val_split = test_split + int(len(data_y)*p["val_size"])
@@ -72,8 +73,6 @@ def load_nn_dataset(p, shuffled=False):
         trainx.append(np.log10(data_x[val_split:]))
         trainy.append(np.log10(data_y[val_split:]))
 
-
-    
 
     std_x = np.std(np.concatenate(trainx), axis=(0, 2, 3))
     std_y = np.std(np.concatenate(trainy))
@@ -101,18 +100,18 @@ def load_nn_dataset(p, shuffled=False):
         else:
             pass
 
-    if shuffled:
-        shuffled_indices = np.arange(len(testy))
-        np.random.shuffle(shuffled_indices)
-        testx = testx[shuffled_indices]
-        testy = testy[shuffled_indices]
-        shuffled_indices = np.arange(len(valy))
-        np.random.shuffle(shuffled_indices)
-        valx = valx[shuffled_indices]
-        valy = valy[shuffled_indices]
-        shuffled_indices = np.arange(len(trainy))
-        np.random.shuffle(shuffled_indices)
-        trainx = trainx[shuffled_indices]
-        trainy = trainy[shuffled_indices]
+    # if shuffled:
+    #     shuffled_indices = np.arange(len(testy))
+    #     np.random.shuffle(shuffled_indices)
+    #     testx = testx[shuffled_indices]
+    #     testy = testy[shuffled_indices]
+    #     shuffled_indices = np.arange(len(valy))
+    #     np.random.shuffle(shuffled_indices)
+    #     valx = valx[shuffled_indices]
+    #     valy = valy[shuffled_indices]
+    #     shuffled_indices = np.arange(len(trainy))
+    #     np.random.shuffle(shuffled_indices)
+    #     trainx = trainx[shuffled_indices]
+    #     trainy = trainy[shuffled_indices]
 
     return testx, testy, trainx, trainy, valx, valy, mean_x, mean_y, std_x, std_y
