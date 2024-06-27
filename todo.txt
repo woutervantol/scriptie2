@@ -1,0 +1,18 @@
+Foutjes in de code die nog aangepast moeten worden:
+
+utility.py, fov, 3e22 -> 3.08567758e22
+dit veranderd de fov van 24.1 naar 24.8, wat de noise veranderd van 400 naar 423 onder andere, en de psf ook
+
+
+data.py, psf, sigma = 1/0.6745 * HEW * [pixels/arcmin]
+met HEW = 26"
+veranderd psf van 0.7 pixels naar 1.7 pixels
+
+
+data.py, psf, images.asdtype(np.float64)
+anders is elke pixel -1 en dat zorgt dat elke low mass halo wordt underpredicted
+
+
+scaling_relation.py, linear fit doen met noisy images???
+zodat je niet de mean moet afhalen, maar dat het model gewoon test op noisy images, net als de CNN.
+beter vergelijking en niet meer negatieve photon counts (of dus 0).

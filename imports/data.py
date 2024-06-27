@@ -142,6 +142,9 @@ class Data():
             halo_mask = halo_data.gas.last_agnfeedback_scale_factors < max_a_allowed
             halo_data.gas.red_flux = halo_data.gas.xray_photon_luminosities.erosita_low
             halo_data.gas.blue_flux = halo_data.gas.xray_photon_luminosities.erosita_high
+            # print(dir(halo_data.gas))
+            # print(halo_data.gas.coordinates - position)
+            print(np.sum(np.linalg.norm(halo_data.gas.coordinates - position, axis=1) < self.p["obs_radius"]))
             # print(len(halo_data.gas.red_flux))
             # print(np.sum(halo_data.gas.red_flux == 0))
             # print(halo_data.gas.red_flux[:100])
@@ -230,13 +233,26 @@ class Data():
         bgd = json.load(filepath)
         fov = bgd["z0"+str(self.p["redshift"])[2:]]["fov"]
         if noise:
+            # print(images[0, 0])
             photon_counts = np.random.poisson(images)
+            # print(photon_counts[0, 0])
             background_noise = np.ones_like(photon_counts, dtype=float)
             background_noise[:, 0, :, :] *= 1/(64*64)*bgd["bgd_low"]*fov**2*self.p["obs_time"] * self.p["modules"]
             background_noise[:, 1, :, :] *= 1/(64*64)*bgd["bgd_high"]*fov**2*self.p["obs_time"] * self.p["modules"]
+
+            # print(background_noise[0, 1])
             background_noise = np.random.poisson(background_noise)
+            # print(background_noise[0, 1])
+            # print(np.mean(background_noise[0, 1]))
+
             images = background_noise + photon_counts
+            # print(images[0, 0])
         if psf:
-            fwhm = 26 / 60 #arcmin
-            images = gaussian_filter(images, 0.6745*fwhm*(64/fov), axes=(2, 3))
+            hew = 26 / 60 #arcmin
+            # print(np.mean(images[0, 1, 27:37, 27:37]))
+
+            images = gaussian_filter(images.astype(np.float64), 0.6745*hew*(64/fov), axes=(2, 3))
+            
+            # print(0.6745*hew*(64/fov))
+            # print(np.mean(images[0, 1, 27:37, 27:37]))
         return images
