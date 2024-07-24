@@ -4,8 +4,13 @@ from scipy.optimize import curve_fit
 import matplotlib.pyplot as plt
 
 
+# def power_law(L, L0, M0, p1, p2):
+#     return np.append(p1*(L[L<L0]-L0)+M0, p2*(L[L>=L0]-L0)+M0)
 def power_law(L, L0, M0, p1, p2):
-    return np.append(p1*(L[L<L0]-L0)+M0, p2*(L[L>=L0]-L0)+M0)
+    fit = L.copy()
+    fit[L < L0] = p1*(L[L<L0]-L0)+M0
+    fit[L >= L0] = p2*(L[L>=L0]-L0)+M0
+    return fit
 
 def powerlaw2d(xy, L0_low, p1_low, p2_low, L0_high, p1_high, p2_high, M0):
     x, y = xy
@@ -95,39 +100,43 @@ def get_coeffs(p):
 # with open(p['model_path'] + "powerlawcoeffs.json", 'r') as filepath:
 #     coeffdict = json.load(filepath)
 
+# p["redshift"] = 0.15
+# coeffdict = {}
+# coeffdict["single"] = {}
+# coeffdict["all_but"] = {}
+
+# p["simtype"]="single"
+# print("Single:")
+# for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+#     print("Begin", model)
+#     p["model"] = model
+#     coeffdict["single"][model] = get_coeffs(p).tolist()
+    
+# print(coeffdict)
+
+# p["simtype"]="all_but"
+# print("All but:")
+# for model in ["HYDRO_FIDUCIAL", "HYDRO_STRONG_AGN"]:
+#     print("Begin", model)
+#     p["model"] = model
+#     coeffdict["all_but"][model] = get_coeffs(p).tolist()
+    
+# print(coeffdict)
+
+# p["simtype"] = "all"
+# p["model"] = model
+# coeffdict["all"] = get_coeffs(p).tolist()
+
+# p["simtype"] = "extremes"
+# p["model"] = model
+# coeffdict["extremes"] = get_coeffs(p).tolist()
+
+# print(coeffdict)
+
+# import json
+# with open(p['model_path'] + "powerlawcoeffs.json", 'w') as filepath:
+#     json.dump(coeffdict, filepath, indent=4)
+
+
 p["redshift"] = 0.15
-coeffdict = {}
-coeffdict["single"] = {}
-coeffdict["all_but"] = {}
-
-p["simtype"]="single"
-print("Single:")
-for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-    print("Begin", model)
-    p["model"] = model
-    coeffdict["single"][model] = get_coeffs(p).tolist()
-    
-print(coeffdict)
-
-p["simtype"]="all_but"
-print("All but:")
-for model in ["HYDRO_FIDUCIAL", "HYDRO_STRONG_AGN"]:
-    print("Begin", model)
-    p["model"] = model
-    coeffdict["all_but"][model] = get_coeffs(p).tolist()
-    
-print(coeffdict)
-
-p["simtype"] = "all"
-p["model"] = model
-coeffdict["all"] = get_coeffs(p).tolist()
-
-p["simtype"] = "extremes"
-p["model"] = model
-coeffdict["extremes"] = get_coeffs(p).tolist()
-
-print(coeffdict)
-
-import json
-with open(p['model_path'] + "powerlawcoeffs.json", 'w') as filepath:
-    json.dump(coeffdict, filepath, indent=4)
+get_coeffs(p)
