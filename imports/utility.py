@@ -11,20 +11,12 @@ def p_to_filename(p):
 
 
 
-def get_nth_newest_file(path, n):
-    import os
-    search_dir = path
-    os.chdir(search_dir)
-    files = filter(os.path.isfile, os.listdir(search_dir))
-    files = [os.path.join(search_dir, f) for f in files] # add path to each file
-    files.sort(key=lambda x: os.path.getmtime(x))
-    return files[-n]
-
-
 def get_flux_ratio(p):
+    """Returns the fraction of photons that arrives at the telescope, and the field of view in one direction in arcmin"""
     z = p["redshift"]
     comoving_distance = 3.08567758e22 * sw.load(f"{p_to_path(p)}/{p['snapshot_folder']}/flamingo_00{int(77-20*p['redshift'])}/flamingo_00{int(77-20*p['redshift'])}.hdf5").metadata.cosmology.comoving_distance(z).value #m
     telescope_surface = np.pi * (p["diameter"]/2)**2 * p["modules"] #m^2
+    ### photon flux equation with added factor 1/(1+z)^2 due to expansion of space and (1+z) due to wavelength dilation
     flux_ratio = telescope_surface /(4*np.pi*(1+z)*comoving_distance**2)#frac of luminosity that arrives at distance r on telescope surface
     angular_distance = comoving_distance / (1+z)
     fov = (np.arcsin(4*3e22/angular_distance)/2/np.pi*360*60) #arcmin
@@ -34,6 +26,10 @@ def get_flux_ratio(p):
 
 
 def load_nn_dataset(p, include_self=False, normalise=True):
+    """Returns normalized dataset for use by neural networks. 
+    Returns a list with each element containing images for one simulation variation. 
+    
+    Note: normalised=False returns the unnormalised training sets of the given simulation variations for fitting the linear model."""
     filename =  p_to_filename(p)
     testx = []
     testy = []
@@ -41,9 +37,9 @@ def load_nn_dataset(p, include_self=False, normalise=True):
     valy = []
     trainx = []
     trainy = []
-    # indices = []
     radii = []
     for model in ["HYDRO_WEAK_AGN", "HYDRO_FIDUCIAL", "HYDRO_STRONG_AGN", "HYDRO_STRONGER_AGN", "HYDRO_STRONGEST_AGN", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_JETS_published", "HYDRO_STRONG_JETS_published"]:
+        ### skip the variations we do not want to have in the dataset
         if p["simtype"] == "all_but" and model == p["model"] and include_self == False:
             continue
         if p["simtype"] == "single" and model != p["model"]:
@@ -57,12 +53,14 @@ def load_nn_dataset(p, include_self=False, normalise=True):
         data_y = np.load(p["data_path"] + filename + "_masses.npy")
         test_split = int(len(data_y)*p["test_size"])
         val_split = test_split + int(len(data_y)*p["val_size"])
+        ### save the log10 of the pixel values
         testx.append(np.log10(data_x[:test_split]))
         testy.append(np.log10(data_y[:test_split]))
         valx.append(np.log10(data_x[test_split:val_split]))
         valy.append(np.log10(data_y[test_split:val_split]))
         trainx.append(np.log10(data_x[val_split:]))
         trainy.append(np.log10(data_y[val_split:]))
+        ### for fitting the linear model, the r_500 values are also needed
         if not normalise:
             from imports.data import Data
             data = Data(p_temp)
@@ -74,13 +72,14 @@ def load_nn_dataset(p, include_self=False, normalise=True):
 
     
     if normalise:
+        ### take the std and mean of all pixels in all images in the dataset, for each energy band seperately.
         std_x = np.std(np.concatenate(trainx), axis=(0, 2, 3))
         std_y = np.std(np.concatenate(trainy))
         mean_x = np.mean(np.concatenate(trainx), axis=(0, 2, 3))
         mean_y = np.mean(np.concatenate(trainy))
 
         for i in range(len(testx)):
-            #scale and shift data for better nn training
+            ### scale and shift data for better nn training
             testx[i] = (testx[i] - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
             testy[i] = (testy[i] - mean_y) / std_y
             valx[i] = (valx[i] - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]

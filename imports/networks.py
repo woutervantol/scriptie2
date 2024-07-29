@@ -7,6 +7,7 @@ import json
 from imports.utility import *
 from imports.architectures import get_architecture
 
+### pytorch dataset object which automatically shuffles and divides into batches
 class customDataSet(torch.utils.data.Dataset):
     def __init__(self, images, labels):
         self.images = images
@@ -18,7 +19,9 @@ class customDataSet(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         return self.images[idx], self.labels[idx]
 
+
 def save_best_model(p, m):
+    """Saves the current model if the validation loss is better than the saved one."""
     name_addon = ""
     if p["simtype"] != "single":
         name_addon += "_"+p["simtype"]
@@ -27,6 +30,8 @@ def save_best_model(p, m):
     if p["channel"] != "2chan":
         name_addon += "_"+p["channel"]
     modelname = p_to_filename(p) + name_addon
+    
+    ### see if any saved model already exists
     try:
         filepath = open(p['model_path']+modelname+".json", 'r')
         bestjson = json.load(filepath)
@@ -35,20 +40,29 @@ def save_best_model(p, m):
         with open(p['model_path'] + modelname + ".json", 'w') as filepath:
             json.dump(p, filepath, indent=4)
         bestvalloss = np.min(p["vallosses"])
+    ### if this model is an improvement, save model and parameters
     if p["vallosses"][-1] < bestvalloss:
         torch.save(m, p["model_path"] + modelname + ".pt")
         with open(p['model_path'] + modelname + ".json", 'w') as filepath:
             json.dump(p, filepath, indent=4)
 
 def train_network(p, verbose=2, report=False):
+    """Main training loop. Includes loading, training, saving and reporting."""
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+    ### load model architecture given the hyperparameters in p 
     p["architecture"] = get_architecture(p)
     model = CustomCNN(p["architecture"]).to(device)
+
+    ### load optimizer and set learning rate annealing factor such that it is 1e-6 after 300 epochs
     optimizer = torch.optim.Adam(model.parameters(), lr=p["lr"], weight_decay=p["L2"])
     gamma = (1e-6/p["lr"])**(1./300.)
     scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma)
+    
+    ### set loss function
     lossfn = RMSE
 
+    ### load training and validation data and create pytorch dataset objects
     _, _, trainx, trainy, valx, valy, _, _, _, _ = load_nn_dataset(p)
     trainx = np.concatenate(trainx)
     trainy = np.concatenate(trainy)
@@ -57,6 +71,7 @@ def train_network(p, verbose=2, report=False):
     trainloader = torch.utils.data.DataLoader(customDataSet(trainx, trainy), batch_size=p["batch_size"])
     valloader = torch.utils.data.DataLoader(customDataSet(valx, valy), batch_size=p["batch_size"])
 
+    ### main loop
     trainloss_hist = []
     valloss_hist = []
     lr_hist = []
@@ -75,6 +90,7 @@ def train_network(p, verbose=2, report=False):
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+        ### validation must also be looped to prevent memory overflow
         val_losses = 0
         for val_batch, datapairs in enumerate(valloader):
             valx, valy = datapairs
@@ -83,8 +99,11 @@ def train_network(p, verbose=2, report=False):
                 val_true = valy.to(device)
                 val_loss = lossfn(val_pred, val_true)
                 val_losses += np.float64(val_loss.cpu())
+        
+        ### update learning rate
         scheduler.step()
 
+        ### save losses and lr
         trainloss_hist.append(train_losses/nr_batches)
         valloss_hist.append(val_losses/nr_valbatches)
         lr_hist.append(np.float64(scheduler._last_lr[0]))
@@ -92,9 +111,11 @@ def train_network(p, verbose=2, report=False):
         p["vallosses"] = valloss_hist
         p["lrs"] = lr_hist
 
+        ### When using ray tune we must report, which also saves if the model has improved
         if report:
             save_best_model(p, model)
             train.report({"val loss": val_losses/nr_valbatches, "loss":train_losses/nr_batches})#, checkpoint=ray.train.Checkpoint.from_directory("/home/s2041340/data1/checkpoints/"))
+        
         if verbose == 0:
             pass
         elif verbose == 1:
@@ -103,145 +124,7 @@ def train_network(p, verbose=2, report=False):
                 print(f"Epoch: {epoch}, done in {time.time() - epoch_start:.2f} seconds")
                 print(f"Validation loss: {val_losses/nr_valbatches}. Train loss: {train_losses/nr_batches}", flush=True)
 
-    if report:
-        # modelname = p_to_filename(p)
-        # torch.save(model, "/home/s2041340/data1/checkpoints/" + modelname + time.gmtime() + ".pt")
-        # train.report({"val loss": val_losses/nr_valbatches, "loss":train_losses/nr_batches})#, checkpoint=ray.train.Checkpoint.from_directory("/home/s2041340/data1/checkpoints/"))
-        pass
-    else:
-        return model, p
-
-# def make_nn_dataset(p):
-#     filename =  p_to_filename(p)
-#     testx = np.empty((0, 2, p["resolution"], p["resolution"]))
-#     testy = np.empty((0))
-#     valx = np.empty((0, 2, p["resolution"], p["resolution"]))
-#     valy = np.empty((0))
-#     trainx = np.empty((0, 2, p["resolution"], p["resolution"]))
-#     trainy = np.empty((0))
-#     if p["simtype"] == "single":
-#         data_x = np.load(p["data_path"] + filename + ".npy")
-#         data_y = np.load(p["data_path"] + filename + "_masses.npy")
-#         test_split = int(len(data_y)*p["test_size"])
-#         val_split = test_split + int(len(data_y)*p["val_size"])
-#         testx = data_x[:test_split]
-#         testy = data_y[:test_split]
-#         valx = data_x[test_split:val_split]
-#         valy = data_y[test_split:val_split]
-#         trainx = data_x[val_split:]
-#         trainy = data_y[val_split:]
-#     elif p["simtype"] == "extremes":
-#         for model in ["HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-#             p_temp = p.copy()
-#             p_temp["model"] = model
-#             filename = p_to_filename(p_temp)
-#             data_x = np.load(p["data_path"] + filename + ".npy")
-#             data_y = np.load(p["data_path"] + filename + "_masses.npy")
-#             test_split = int(len(data_y)*p["test_size"])
-#             val_split = test_split + int(len(data_y)*p["val_size"])
-#             testx = np.append(testx, data_x[:test_split], axis=0)
-#             testy = np.append(testy, data_y[:test_split], axis=0)
-#             valx = np.append(valx, data_x[test_split:val_split], axis=0)
-#             valy = np.append(valy, data_y[test_split:val_split], axis=0)
-#             trainx = np.append(trainx, data_x[val_split:], axis=0)
-#             trainy = np.append(trainy, data_y[val_split:], axis=0)
-#     else:
-#         for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-#             if p["simtype"] == "all_but" and p["model"] == model:
-#                 continue
-#             p_temp = p.copy()
-#             p_temp["model"] = model
-#             filename = p_to_filename(p_temp)
-#             data_x = np.load(p["data_path"] + filename + ".npy")
-#             data_y = np.load(p["data_path"] + filename + "_masses.npy")
-#             test_split = int(len(data_y)*p["test_size"])
-#             val_split = test_split + int(len(data_y)*p["val_size"])
-#             testx = np.append(testx, data_x[:test_split], axis=0)
-#             testy = np.append(testy, data_y[:test_split], axis=0)
-#             valx = np.append(valx, data_x[test_split:val_split], axis=0)
-#             valy = np.append(valy, data_y[test_split:val_split], axis=0)
-#             trainx = np.append(trainx, data_x[val_split:], axis=0)
-#             trainy = np.append(trainy, data_y[val_split:], axis=0)
-#     # data_x = np.empty((0, 2, p["resolution"], p["resolution"]))
-#     # data_y = np.empty((0))
-#     # if p["simtype"] == "single":
-#     #     data_x = np.load(p["data_path"] + filename + ".npy")
-#     #     data_y = np.load(p["data_path"] + filename + "_masses.npy")
-#     # elif p["simtype"] == "extremes":
-#     #     for model in ["HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-#     #         p_temp = p.copy()
-#     #         p_temp["model"] = model
-#     #         filename = p_to_filename(p_temp)
-#     #         data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
-#     #         data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
-#     #         print(f"{model} loaded", flush=True)
-#     # else:
-#     #     for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
-#     #         if p["simtype"] == "all_but" and p["model"] == model:
-#     #             continue
-#     #         p_temp = p.copy()
-#     #         p_temp["model"] = model
-#     #         filename = p_to_filename(p_temp)
-#     #         data_x = np.append(data_x, np.load(p["data_path"] + filename + ".npy"), axis=0)
-#     #         data_y = np.append(data_y, np.load(p["data_path"] + filename + "_masses.npy"), axis=0)
-#     #         print(f"{model} loaded", flush=True)
-
-
-#     shuffled_indices = np.arange(len(testy))
-#     np.random.shuffle(shuffled_indices)
-#     testx = testx[shuffled_indices]
-#     testy = testy[shuffled_indices]
-#     shuffled_indices = np.arange(len(valy))
-#     np.random.shuffle(shuffled_indices)
-#     valx = valx[shuffled_indices]
-#     valy = valy[shuffled_indices]
-#     shuffled_indices = np.arange(len(trainy))
-#     np.random.shuffle(shuffled_indices)
-#     trainx = trainx[shuffled_indices]
-#     trainy = trainy[shuffled_indices]
-
-#     testx = np.log10(testx)
-#     testy = np.log10(testy)
-#     valx = np.log10(valx)
-#     valy = np.log10(valy)
-#     trainx = np.log10(trainx)
-#     trainy = np.log10(trainy)
-
-#     std_x = np.std(trainx, axis=(0, 2, 3))
-#     std_y = np.std(trainy)
-#     mean_x = np.mean(trainx, axis=(0, 2, 3))
-#     mean_y = np.mean(trainy)
-
-#     #scale and shift data for better nn training
-#     testx = (testx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
-#     testy = (testy - mean_y) / std_y
-#     valx = (valx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
-#     valy = (valy - mean_y) / std_y
-#     trainx = (trainx - mean_x[np.newaxis, :, np.newaxis, np.newaxis]) / std_x[np.newaxis, :, np.newaxis, np.newaxis]
-#     trainy = (trainy - mean_y) / std_y
-
-#     #Select the correct image for single channel runs
-#     if p["channel"]=="low": 
-#         testx = testx[:,:1,:,:]
-#         valx = valx[:,:1,:,:]
-#         trainx = trainx[:,:1,:,:]
-#     elif p["channel"]=="high": 
-#         testx = testx[:,1:,:,:]
-#         valx = valx[:,1:,:,:]
-#         trainx = trainx[:,1:,:,:]
-#     else:
-#         pass
-
-#     # test_split = int(len(data_y)*p["test_size"])
-#     # val_split = test_split + int(len(data_y)*p["val_size"])
-#     # testx = data_x[:test_split]
-#     # testy = data_y[:test_split]
-#     # valx = data_x[test_split:val_split]
-#     # valy = data_y[test_split:val_split]
-#     # trainx = data_x[val_split:]
-#     # trainy = data_y[val_split:]
-
-#     return testx, testy, trainx, trainy, valx, valy, mean_x, mean_y, std_x, std_y
+    return model, p
 
 def MSE(pred, true):
     return (pred - true).square().mean()
@@ -249,10 +132,12 @@ def MSE(pred, true):
 def RMSE(pred, true):
     return (pred - true).square().mean().sqrt()
 
+
 class CustomCNN(torch.nn.Module):
+    """Creates pytorch model object from list of dictionaries with all layers and parameters"""
     def __init__(self, architecture):
         super(CustomCNN, self).__init__()
-
+        ### Note: skip-connections not used in project
         self.layers, self.skip_connection_indices = self._build_layers(architecture)
 
     def _build_layers(self, layer_configs):
@@ -299,11 +184,11 @@ class CustomCNN(torch.nn.Module):
         return layers, skip_connection_indices
 
     def forward(self, x):
-        # skip_connections = []
+        skip_connections = []
         for layer_idx, layer in enumerate(self.layers):
             x = layer(x)
-            # if layer_idx in self.skip_connection_indices:
-            #     skip_connections.append(x)
+            if layer_idx in self.skip_connection_indices:
+                skip_connections.append(x)
         return x#, skip_connections
 
 

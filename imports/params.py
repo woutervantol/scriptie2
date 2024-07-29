@@ -1,11 +1,13 @@
-
+### Default parameters
 p = {
     "flamingo_path":"/net/hypernova/data2/FLAMINGO",
 
+    ### DODDER paths:
     "data_path":"/net/dodder/data2/tol/obs_data/",
     "model_path":"/home/tol/Documents/Thesis/models/",
     "old_model_path":"/home/tol/Documents/Thesis/models_old/",
     "ray_log_path":"/home/tol/Documents/Thesis/tune_log",
+    ### ALICE paths:
     # "data_path":"/home/s2041340/data1/data/",
     # "model_path":"/home/s2041340/data1/models/",
     # "ray_log_path":"/home/s2041340/data1/tune_log",
@@ -41,7 +43,6 @@ p = {
 
     "channel":"2chan",
     "kernel_size":3, #must be uneven
-    # "conv_channels":16,
     "base_filters":16,
     "leaky_slope":0.01,
     "dropout":0.1,
@@ -53,17 +54,3 @@ p = {
     "search_alg": "BOHB",
     "time_budget": 60*5, #in seconds
 }
-
-
-
-
-# {'type': 'conv', 'in_channels': 3, 'out_channels': 64, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'skip_connection': True},
-# {'type': 'relu'},
-# {'type': 'pool', 'kernel_size': 2, 'stride': 2, 'padding': 0},
-# {'type': 'conv', 'in_channels': 64, 'out_channels': 128, 'kernel_size': 3, 'stride': 1, 'padding': 1, 'skip_connection': True},
-# {'type': 'relu'},
-# {'type': 'pool', 'kernel_size': 2, 'stride': 2, 'padding': 0},
-# {'type': 'fc', 'in_features': 128 * 8 * 8, 'out_features': 256},
-# {'type': 'relu'},
-# {'type': 'fc', 'in_features': 256, 'out_features': 10},
-# {'type': 'softmax'}
