@@ -28,15 +28,8 @@ if args.budget:
     p["time_budget"] = 60*60*float(args.budget)
 
 ### change file naming based on arguments
-if p["simtype"] != "single":
-    name_addon = "_"+p["simtype"]
-else:
-    name_addon = ""
-if p["channel"] != "2chan":
-    name_addon += "_"+p["channel"]
 if bool(args.noise):
     p["noisy"] = True
-    name_addon += "_"+"noisy"
 
 ### set parameters
 p["search_alg"] = "Optuna"
@@ -135,7 +128,7 @@ def run():
                                                     num_samples=1000, 
                                                     time_budget_s=p["time_budget"]),
                         run_config=train.RunConfig(storage_path=p["ray_log_path"], 
-                                                   name=p_to_filename(p)+name_addon, 
+                                                   name=p_to_filename(p), 
                                                    progress_reporter=tune.CLIReporter(max_progress_rows=3))
                        )
 

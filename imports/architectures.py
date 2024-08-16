@@ -1,5 +1,6 @@
 def get_architecture(p):
     """Returns list of dictionaries, with each dictionary a layer containing the layer name and parameter values."""
+    
     ### alter input shape for single band model
     if p["channel"] == "2chan":
         in_channels = 2

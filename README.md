@@ -9,4 +9,6 @@ Images can be generated using the Data class. A template is given in create_data
 
 Models are trained using alice_search.slurm which runs tune_search.py with varying arguments. 
 
-Plots are generated using the plots.ipynb notebook.
+The predictions of the models are calculated in make_predictions.py
+
+The predictions are needed to make plots, which are generated using the plots.ipynb notebook.

@@ -25,6 +25,7 @@ p = {
     
     "resolution":64,
     "obs_radius":2,#Mpc
+    "obs_depth":10,#Mpc
     "nr_uniform_bins_obs_data":20,
     "redshift":0.15,
     "diameter":0.36, #m

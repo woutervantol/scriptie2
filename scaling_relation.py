@@ -67,7 +67,7 @@ coeffdict["all_but"] = {}
 ### get parameters for single models
 p["simtype"]="single"
 print("Single:")
-for model in ["HYDRO_FIDUCIAL", "HYDRO_JETS_published", "HYDRO_STRONG_AGN", "HYDRO_STRONG_JETS_published", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_STRONGEST_AGN", "HYDRO_WEAK_AGN"]:
+for model in simulation_variations:
     print("Begin", model)
     p["model"] = model
     coeffdict["single"][model] = get_coeffs(p).tolist()

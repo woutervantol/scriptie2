@@ -22,14 +22,7 @@ class customDataSet(torch.utils.data.Dataset):
 
 def save_best_model(p, m):
     """Saves the current model if the validation loss is better than the saved one."""
-    name_addon = ""
-    if p["simtype"] != "single":
-        name_addon += "_"+p["simtype"]
-    if p["noisy"] == True:
-        name_addon += "_"+"noisy"
-    if p["channel"] != "2chan":
-        name_addon += "_"+p["channel"]
-    modelname = p_to_filename(p) + name_addon
+    modelname = p_to_filename(p)
     
     ### see if any saved model already exists
     try:
