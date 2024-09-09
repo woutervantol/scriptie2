@@ -114,45 +114,47 @@ def save_predictions(prediction_dict):
 def predict(p):
     """Performs and saves predictions of linear and NN models in dictionary under specific key"""
 
-    ### Calculate prediction
-    linear_predictions = predict_with_scaling_relations(p)
-    nn_predictions = predict_with_nn(p)
-    
-    ### add predictions to dictionary
-    predictions["linear_predictions"+p_to_filename(p)] = [l.tolist() for l in linear_predictions]
-    predictions["nn_predictions"+p_to_filename(p)] = [l.tolist() for l in nn_predictions]
+    if "linear_predictions"+p_to_filename(p) not in predictions:
+        print("start", p["model"])
+        ### Calculate prediction
+        linear_predictions = predict_with_scaling_relations(p)
+        nn_predictions = predict_with_nn(p)
+        
+        ### add predictions to dictionary
+        predictions["linear_predictions"+p_to_filename(p)] = [l.tolist() for l in linear_predictions]
+        predictions["nn_predictions"+p_to_filename(p)] = [l.tolist() for l in nn_predictions]
 
-    ### intermediate save
-    save_predictions(predictions)
+        ### intermediate save
+        save_predictions(predictions)
 
 
 ### MAIN LOOP
 for noisy in [False, True]:
     p["noisy"] = noisy
 
-    # ### single
-    # p["simtype"] = "single"
-    # for trainmodel in simulation_variations:
-    #     ### set parameters and name
-    #     p["model"] = trainmodel
-    #     predict(p)
-    
-    ### all but
-    p["simtype"] = "all_but"
-    for trainmodel in ["HYDRO_FIDUCIAL"]:
+    ### single
+    p["simtype"] = "single"
+    for trainmodel in simulation_variations:
         ### set parameters and name
         p["model"] = trainmodel
         predict(p)
     
-    # ### All
-    # p["simtype"] = "all"
-    # ### set parameters and name
-    # p["model"] = "HYDRO_FIDUCIAL"
-    # predict(p)
+    ### all but
+    p["simtype"] = "all_but"
+    for trainmodel in ["HYDRO_FIDUCIAL", "HYDRO_STRONG_AGN"]:
+        ### set parameters and name
+        p["model"] = trainmodel
+        predict(p)
+    
+    ### All
+    p["simtype"] = "all"
+    ### set parameters and name
+    p["model"] = "HYDRO_FIDUCIAL"
+    predict(p)
 
 
-    # ### Extremes
-    # p["simtype"] = "extremes"
-    # ### set parameters and name
-    # p["model"] = "HYDRO_FIDUCIAL"
-    # predict(p)
+    ### Extremes
+    p["simtype"] = "extremes"
+    ### set parameters and name
+    p["model"] = "HYDRO_FIDUCIAL"
+    predict(p)

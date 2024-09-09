@@ -24,27 +24,22 @@ p["depth"] = 10 #Mpc
 # p["model"] = "HYDRO_FIDUCIAL"
 
 
-
-
 ### calculate and save mean noise values
 gen_base_noise_values(p)
 
-
-data = Data(p)
 ### generate and save images. nr_samples is excluding the roll-off so the actual number of images will be less than nr_samples.
+data = Data(p)
 data.generate_obs_data(nr_samples=10000)
 
 
-# ### generate noise for all variations
-# for model in simulation_variations:
-#     p["model"] = model
-#     data = Data(p)
-#     filename = p_to_filename(p)
-
-#     ### save noisy data
-#     data.load_dataset()
-#     noisy_images = data.add_noise(data.images)
-#     np.save(p["data_path"] + filename + "_noisy", noisy_images)
+### generate noise and save noisy dataset if noisy data does not already exist
+data.load_dataset()
+noisy_images = data.add_noise(data.images)
+try:
+    np.load(p["data_path"] + p_to_filename(p)+"_noisy.npy")
+    print(p["data_path"] + p_to_filename(p)+"_noisy.npy already exists.")
+except:
+    np.save(p["data_path"] + p_to_filename(p)+"_noisy", noisy_images)
 
 
 

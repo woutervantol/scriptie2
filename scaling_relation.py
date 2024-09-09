@@ -43,24 +43,28 @@ def get_coeffs(p):
     lums_high = np.array(lums_high)
 
     ### fit 1D broken power laws for the initial guess of the 2D fit
-    coeff_low, var = curve_fit(power_law, lums_low, masses, sigma=0.1, maxfev=300000, p0=[5, 13.5, 0.3, 0.7])
+    bounds = ([0, 10, 0, 0], [10, 20, 2, 2])
+    coeff_low, var = curve_fit(power_law, lums_low, masses, sigma=0.1, maxfev=300000, p0=[5, 13.5, 0.3, 0.7], bounds=bounds)
     print("L0, M0, p1, p2 for low energy band: ", coeff_low)
-    coeff_high, var = curve_fit(power_law, lums_high, masses, sigma=0.1, maxfev=300000, p0=[5, 13.5, 0.3, 0.7])
+    coeff_high, var = curve_fit(power_law, lums_high, masses, sigma=0.1, maxfev=300000, p0=[5, 13.5, 0.3, 0.7], bounds=bounds)
     print("L0, M0, p1, p2 for high energy band: ", coeff_high)
 
     ### combine datapoints and perform least squares fit
+    bounds = ([0, 0, 0, 0, 0, 0, 10], [10, 2, 2, 10, 2, 2, 20])
     datapoints2d = np.append(lums_low[np.newaxis, :], lums_high[np.newaxis, :], axis=0)
-    coeff2d, var = curve_fit(powerlaw2d, datapoints2d, masses, sigma=0.1, p0=[coeff_low[0], coeff_low[2], coeff_low[3], coeff_high[0], coeff_high[2], coeff_high[3], 14])
+    coeff2d, var = curve_fit(powerlaw2d, datapoints2d, masses, sigma=0.1, p0=[coeff_low[0], coeff_low[2], coeff_low[3], coeff_high[0], coeff_high[2], coeff_high[3], 14], bounds=bounds)
     print(coeff2d)
     return coeff2d
 
 import json
-with open(p['model_path'] + "powerlawcoeffs.json", 'r') as filepath:
-    coeffdict = json.load(filepath)
+try:
+    with open(p['model_path'] + "powerlawcoeffs.json", 'r') as filepath:
+        coeffdict = json.load(filepath)
+except:
+    coeffdict = {}
 
 ### create dictionary for best fit parameters
 p["redshift"] = 0.15
-coeffdict = {}
 coeffdict["single"] = {}
 coeffdict["all_but"] = {}
 
