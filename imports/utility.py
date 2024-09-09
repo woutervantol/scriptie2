@@ -12,16 +12,21 @@ def p_to_path(p):
     return f"{p['flamingo_path']}/{p['simsize']}/{p['model']}"
 
 
-def p_to_filename(p, data=False):
-    ### when loading datasets, addons are not used. This distinction is necessary during testing 
+def p_to_filename(p, model=False, data=False):
+    ### when loading datasets, only noise addon is used. All addons are used for loading NN models.
     name_addon = ""
-    if not data:
+    if model:
         if p["simtype"] != "single":
             name_addon += "_"+p["simtype"]
         if p["noisy"] == True:
             name_addon += "_"+"noisy"
         if p["channel"] != "2chan":
             name_addon += "_"+p["channel"]
+    elif data:
+        if p["noisy"] == True:
+            name_addon += "_"+"noisy"
+    else:
+        name_addon = ""
     return f"{p['simsize']}_{p['model']}_z0{str(p['redshift'])[2:]}" + name_addon
 
 
