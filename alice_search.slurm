@@ -3,7 +3,7 @@
 #SBATCH --output=%x_%j.out
 #SBATCH --mail-user="tol@strw.leidenuniv.nl"
 #SBATCH --mail-type="ALL"
-#SBATCH --time=3-00:00:00
+#SBATCH --time=7-00:00:00
 #SBATCH --partition=gpu-long
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
