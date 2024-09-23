@@ -32,15 +32,17 @@ def get_coeffs(p):
     lums_low = []
     lums_high = []
     ### add pixel values in r_500 for the luminosity values
-    for i in range(len(images)):
-        radius = radii[i] / pixel_size
-        X, Y = np.ogrid[:p['resolution'], :p['resolution']]
-        dist_from_center = np.sqrt((X + 0.5-int(p['resolution']/2))**2+(Y+0.5-int(p['resolution']/2))**2)
-        mask_circ = dist_from_center<=radius
-        lums_low.append(np.log10(np.sum(10**images[i, 0][mask_circ])))
-        lums_high.append(np.log10(np.sum(10**images[i, 1][mask_circ])))
-    lums_low = np.array(lums_low)
-    lums_high = np.array(lums_high)
+    # for i in range(len(images)):
+    #     radius = radii[i] / pixel_size
+    #     X, Y = np.ogrid[:p['resolution'], :p['resolution']]
+    #     dist_from_center = np.sqrt((X + 0.5-int(p['resolution']/2))**2+(Y+0.5-int(p['resolution']/2))**2)
+    #     mask_circ = dist_from_center<=radius
+    #     lums_low.append(np.log10(np.sum(10**images[i, 0][mask_circ])))
+    #     lums_high.append(np.log10(np.sum(10**images[i, 1][mask_circ])))
+    # lums_low = np.array(lums_low)
+    # lums_high = np.array(lums_high)
+    lums_low = np.log10(np.sum(10**images[:,0,:,:], axis=(1, 2)))
+    lums_high = np.log10(np.sum(10**images[:,0,:,:], axis=(1, 2)))
 
     ### fit 1D broken power laws for the initial guess of the 2D fit
     bounds = ([0, 10, 0, 0], [10, 20, 2, 2])

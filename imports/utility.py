@@ -12,7 +12,7 @@ def p_to_path(p):
     return f"{p['flamingo_path']}/{p['simsize']}/{p['model']}"
 
 
-def p_to_filename(p, model=False, data=False):
+def p_to_filename(p, model=False, images=True):
     ### when loading datasets, only noise addon is used. All addons are used for loading NN models.
     name_addon = ""
     if model:
@@ -22,7 +22,7 @@ def p_to_filename(p, model=False, data=False):
             name_addon += "_"+"noisy"
         if p["channel"] != "2chan":
             name_addon += "_"+p["channel"]
-    elif data:
+    elif images:
         if p["noisy"] == True:
             name_addon += "_"+"noisy"
     else:
@@ -62,9 +62,9 @@ def gen_base_noise_values(p):
     total_bgd = np.loadtxt(p_temp["model_path"]+"bgd.txt", delimiter=",")
     bgd_low = total_bgd[total_bgd[:,0] < 2.3]
     bgd_high = total_bgd[total_bgd[:,0] >= 2.3]
-    bgd_low = np.trapz(bgd_low[:,1], bgd_low[:,0]) * p_temp["modules"]
-    bgd_high = np.trapz(bgd_high[:,1], bgd_high[:,0]) * p_temp["modules"]
-    bgd_dict["bgd_low"] = bgd_low #counts / s / arcmin^2
+    bgd_low = np.trapz(bgd_low[:,1], bgd_low[:,0])
+    bgd_high = np.trapz(bgd_high[:,1], bgd_high[:,0])
+    bgd_dict["bgd_low"] = bgd_low #counts / s / arcmin^2 / module
     bgd_dict["bgd_high"] = bgd_high
 
     bgd_dict["z015"] = {}

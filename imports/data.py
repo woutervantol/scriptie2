@@ -34,26 +34,47 @@ class Data():
 
     def load_dataset(self):
         """Load all images, indices and masses"""
-        self.images = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + ".npy")
-        self.indices = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + "_halo_indices.npy")
-        self.masses = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + "_masses.npy")
+        self.images = np.load(self.p["data_path"] + p_to_filename(self.p) + ".npy")
+        self.indices = np.load(self.p["data_path"] + p_to_filename(self.p, images=False) + "_halo_indices.npy")
+        self.masses = np.load(self.p["data_path"] + p_to_filename(self.p, images=False) + "_masses.npy")
 
 
 
     def load_testset(self):
         """Load only the testset images, indices and masses"""
-        self.images = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + ".npy")
+        self.images = np.load(self.p["data_path"] + p_to_filename(self.p) + ".npy")
         self.images = self.images[:int(len(self.images)*self.p["test_size"])]
-        self.indices = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + "_halo_indices.npy")
+        self.indices = np.load(self.p["data_path"] + p_to_filename(self.p, images=False) + "_halo_indices.npy")
         self.indices = self.indices[:int(len(self.indices)*self.p["test_size"])]
-        self.masses = np.load(self.p["data_path"] + p_to_filename(self.p, data=True) + "_masses.npy")
+        self.masses = np.load(self.p["data_path"] + p_to_filename(self.p, images=False) + "_masses.npy")
         self.masses = self.masses[:int(len(self.masses)*self.p["test_size"])]
+
+    def generate_linear_data(self, halo_indices):
+        filename = p_to_filename(self.p) + "_linear"
+        time_start = time.time()
+        time_last = time.time()
+        flux_ratio, fov = get_flux_ratio(self.p)
+        flux_ratio = flux_ratio * (1/unyt.m**2)
+        flux_dataset = np.array([]) * unyt.cm**2/unyt.s
+        for sample, halo_index in enumerate(halo_indices):
+            ### make the image and add it to the dataset
+            red_flux, blue_flux = self.make_obs(halo_index, rotate=False, remove_substructures=True)
+            fluxes = np.append(red_flux, blue_flux).reshape(1, 2, self.p['resolution'], self.p['resolution'])
+            flux_dataset = np.append(flux_dataset, fluxes).reshape(sample+1, 2, self.p['resolution'], self.p['resolution'])
+            print(f"Sample {sample} of {len(halo_indices)} done. Time running: {(time.time() - time_start)/60: .2f}m. {time.time() - time_last:.2f}s since last")
+            time_last = time.time()
+
+            if sample%100 == 99:
+                ### intermediate saving
+                np.save(self.p["data_path"] + filename, flux_dataset*flux_ratio*self.p["obs_time"])
+                print(f"Saved {self.p['data_path'] + filename}")
+        np.save(self.p["data_path"] + filename, flux_dataset*flux_ratio*self.p["obs_time"])
 
 
     def generate_obs_data(self, nr_samples=100):
         """Generate images with log uniform mass distribution"""
         ### check if the file already exists
-        filename = p_to_filename(self.p,  data=True)
+        filename = p_to_filename(self.p)
         try:
             np.load(self.p["data_path"] + filename + ".npy")
             print(f"File {self.p['data_path'] + filename + '.npy'} already exists.")
@@ -62,7 +83,6 @@ class Data():
             pass
         flux_dataset = np.array([]) * unyt.cm**2/unyt.s
         time_start = time.time()
-        time_last = time.time()
 
         ### choose indices for halos for log uniform distribution with roll-off
         nr_bins = self.p["nr_uniform_bins_obs_data"]
@@ -93,7 +113,7 @@ class Data():
 
         
 
-    def make_obs(self, halo_index, rotate=False):
+    def make_obs(self, halo_index, rotate=False, remove_substructures=False):
         """Make single projected image of photon luminosity of a halo with given flamingo index"""
         mask = sw.mask(self.sw_path)
         a = 1/(1+self.p["redshift"])
@@ -111,6 +131,14 @@ class Data():
         ### filter out particles with AGN feedback more recent than 15 Myr
         max_a_allowed = float(1/(1+z_at_value(halo_data.metadata.cosmology.lookback_time, current_time + 15*u.Myr)))
         halo_mask = halo_data.gas.last_agnfeedback_scale_factors < max_a_allowed
+
+        if remove_substructures:
+            fof_group = halo_data.gas.fofgroup_ids[np.argmin(np.linalg.norm(halo_data.gas.coordinates - position, axis=1))]
+            # bound_particles_mask = (halo_data.gas.fofgroup_ids == fof_group) | (halo_data.gas.fofgroup_ids == 2147483647)
+            # bound_particles_mask = halo_data.gas.fofgroup_ids == fof_group
+            bound_particles_mask = halo_data.gas.fofgroup_ids == 2147483647
+            halo_mask = halo_mask * bound_particles_mask
+
         halo_data.gas.red_flux = halo_data.gas.xray_photon_luminosities.erosita_low
         halo_data.gas.blue_flux = halo_data.gas.xray_photon_luminosities.erosita_high
 
