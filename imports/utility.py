@@ -1,5 +1,7 @@
 import numpy as np
 import swiftsimio as sw
+import unyt
+from astropy import units as u
 
 ### define order of simulation variations globally
 simulation_variations = ["HYDRO_WEAK_AGN", "HYDRO_FIDUCIAL", "HYDRO_STRONG_AGN", "HYDRO_STRONGER_AGN", "HYDRO_STRONGEST_AGN", "HYDRO_STRONG_SUPERNOVA", "HYDRO_STRONGER_AGN_STRONG_SUPERNOVA", "HYDRO_JETS_published", "HYDRO_STRONG_JETS_published"]
@@ -31,17 +33,21 @@ def p_to_filename(p, model=False, images=True):
 
 
 
-def get_flux_ratio(p):
+def get_flux_ratio(p, interpolation=True):
     """Returns the fraction of emitted photons that arrives at the telescope, and the field of view along one axis in arcmin (it's a square image)"""
     z = p["redshift"]
-    comoving_distance = 3.08567758e22 * sw.load(f"{p_to_path(p)}/{p['snapshot_folder']}/flamingo_00{int(77-20*p['redshift'])}/flamingo_00{int(77-20*p['redshift'])}.hdf5").metadata.cosmology.comoving_distance(z).value #m
-    # telescope_surface = np.pi * (p["diameter"]/2)**2 * p["modules"] #m^2
-    
+    # 3.08567758e22 * 
+    comoving_distance = sw.load(f"{p_to_path(p)}/{p['snapshot_folder']}/flamingo_00{int(77-20*p['redshift'])}/flamingo_00{int(77-20*p['redshift'])}.hdf5").metadata.cosmology.comoving_distance(z).to(u.m) #m
+    if interpolation:
+        telescope_surface = 1
+    else:
+        telescope_surface = np.pi * (p["diameter"]/2)**2 * p["modules"] * u.m**2 #m^2
     ### photon flux equation with added factor 1/(1+z)^2 due to expansion of space and (1+z) due to wavelength dilation
     ### The effective telescope surface is wavelength dependent, and has already been included during generation, so is omitted here
-    flux_ratio = 1 /(4*np.pi*(1+z)*comoving_distance**2)#frac of luminosity that arrives at distance r on telescope surface
+    ### flux ratio is then the frac of luminosity that arrives at distance r on telescope surface
+    flux_ratio = (telescope_surface /(4*np.pi*(1+z)*comoving_distance**2)).value #1/m**2
     angular_distance = comoving_distance / (1+z)
-    fov = (np.arcsin(4*3.08567758e22/angular_distance)/2/np.pi*360*60) #arcmin
+    fov = (np.arcsin(4*u.Mpc/angular_distance)/2/np.pi*360*60) #arcmin
     return flux_ratio, fov #flux ratio is in 1/m**2
 
 

@@ -51,6 +51,12 @@ class Data():
 
     def generate_linear_data(self, halo_indices):
         filename = p_to_filename(self.p) + "_linear"
+        try:
+            np.load(self.p["data_path"] + filename + ".npy")
+            print(filename+".npy already exists.")
+            return
+        except:
+            pass
         time_start = time.time()
         time_last = time.time()
         flux_ratio, fov = get_flux_ratio(self.p)
@@ -113,7 +119,7 @@ class Data():
 
         
 
-    def make_obs(self, halo_index, rotate=False, remove_substructures=False):
+    def make_obs(self, halo_index, rotate=False, remove_substructures=False, interpolation=True):
         """Make single projected image of photon luminosity of a halo with given flamingo index"""
         mask = sw.mask(self.sw_path)
         a = 1/(1+self.p["redshift"])
@@ -134,9 +140,9 @@ class Data():
 
         if remove_substructures:
             fof_group = halo_data.gas.fofgroup_ids[np.argmin(np.linalg.norm(halo_data.gas.coordinates - position, axis=1))]
-            # bound_particles_mask = (halo_data.gas.fofgroup_ids == fof_group) | (halo_data.gas.fofgroup_ids == 2147483647)
+            bound_particles_mask = (halo_data.gas.fofgroup_ids == fof_group) | (halo_data.gas.fofgroup_ids == 2147483647)
             # bound_particles_mask = halo_data.gas.fofgroup_ids == fof_group
-            bound_particles_mask = halo_data.gas.fofgroup_ids == 2147483647
+            # bound_particles_mask = halo_data.gas.fofgroup_ids == 2147483647
             halo_mask = halo_mask * bound_particles_mask
 
         halo_data.gas.red_flux = halo_data.gas.xray_photon_luminosities.erosita_low
@@ -153,35 +159,37 @@ class Data():
             rotation_center = None
             rotation_matrix = None
 
-        ### interpolate luminosities in the broad band
-        mass_fraction = np.zeros((len(halo_data.gas.smoothed_element_mass_fractions.hydrogen), 9))
-        mass_fraction[:, 0] = halo_data.gas.smoothed_element_mass_fractions.hydrogen
-        mass_fraction[:, 1] = halo_data.gas.smoothed_element_mass_fractions.helium
-        mass_fraction[:, 2] = halo_data.gas.smoothed_element_mass_fractions.carbon
-        mass_fraction[:, 3] = halo_data.gas.smoothed_element_mass_fractions.nitrogen
-        mass_fraction[:, 4] = halo_data.gas.smoothed_element_mass_fractions.oxygen
-        mass_fraction[:, 5] = halo_data.gas.smoothed_element_mass_fractions.neon
-        mass_fraction[:, 6] = halo_data.gas.smoothed_element_mass_fractions.magnesium
-        mass_fraction[:, 7] = halo_data.gas.smoothed_element_mass_fractions.silicon
-        mass_fraction[:, 8] = halo_data.gas.smoothed_element_mass_fractions.iron
+        if interpolation:
+            ### interpolate luminosities in the broad band
+            mass_fraction = np.zeros((len(halo_data.gas.smoothed_element_mass_fractions.hydrogen), 9))
+            mass_fraction[:, 0] = halo_data.gas.smoothed_element_mass_fractions.hydrogen
+            mass_fraction[:, 1] = halo_data.gas.smoothed_element_mass_fractions.helium
+            mass_fraction[:, 2] = halo_data.gas.smoothed_element_mass_fractions.carbon
+            mass_fraction[:, 3] = halo_data.gas.smoothed_element_mass_fractions.nitrogen
+            mass_fraction[:, 4] = halo_data.gas.smoothed_element_mass_fractions.oxygen
+            mass_fraction[:, 5] = halo_data.gas.smoothed_element_mass_fractions.neon
+            mass_fraction[:, 6] = halo_data.gas.smoothed_element_mass_fractions.magnesium
+            mass_fraction[:, 7] = halo_data.gas.smoothed_element_mass_fractions.silicon
+            mass_fraction[:, 8] = halo_data.gas.smoothed_element_mass_fractions.iron
 
-        table_name = '/net/dodder/data2/braspenning/X_Ray_table_metals_full_withconvolved.hdf5'
+            table_name = '/net/dodder/data2/braspenning/X_Ray_table_metals_full_withconvolved.hdf5'
 
-        xray_calc = XrayCalculator(self.p["redshift"], table_name, ['erosita-low'], ['photons_convolved'])
-        idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n = xray_calc.find_indices(halo_data.gas.densities, halo_data.gas.temperatures, mass_fraction, halo_data.gas.masses, fill_value = 0)
-        interpolated_quantities = xray_calc.interpolate_X_Ray(idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n, bands = ['erosita-low'], observing_types = ['photons_convolved'], fill_value = 0)
-        halo_data.gas.erosita_low_new = sw.cosmo_array(interpolated_quantities.flatten(), cosmo_factor=halo_data.gas.red_flux.cosmo_factor)
+            xray_calc = XrayCalculator(self.p["redshift"], table_name, ['erosita-low'], ['photons_convolved'])
+            idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n = xray_calc.find_indices(halo_data.gas.densities, halo_data.gas.temperatures, mass_fraction, halo_data.gas.masses, fill_value = 0)
+            interpolated_quantities = xray_calc.interpolate_X_Ray(idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n, bands = ['erosita-low'], observing_types = ['photons_convolved'], fill_value = 0)
+            halo_data.gas.red_flux = sw.cosmo_array(interpolated_quantities.flatten(), cosmo_factor=halo_data.gas.red_flux.cosmo_factor)
 
-        xray_calc = XrayCalculator(self.p["redshift"], table_name, ['erosita-high'], ['photons_convolved'])
-        idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n = xray_calc.find_indices(halo_data.gas.densities, halo_data.gas.temperatures, mass_fraction, halo_data.gas.masses, fill_value = 0)
-        interpolated_quantities = xray_calc.interpolate_X_Ray(idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n, bands = ['erosita-high'], observing_types = ['photons_convolved'], fill_value = 0)
-        halo_data.gas.erosita_high_new = sw.cosmo_array(interpolated_quantities.flatten(), cosmo_factor=halo_data.gas.blue_flux.cosmo_factor)
+            xray_calc = XrayCalculator(self.p["redshift"], table_name, ['erosita-high'], ['photons_convolved'])
+            idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n = xray_calc.find_indices(halo_data.gas.densities, halo_data.gas.temperatures, mass_fraction, halo_data.gas.masses, fill_value = 0)
+            interpolated_quantities = xray_calc.interpolate_X_Ray(idx_he, idx_T, idx_n, t_z, d_z, t_T, d_T, t_nH, d_nH, t_He, d_He, abundance_to_solar, joint_mask, volumes, data_n, bands = ['erosita-high'], observing_types = ['photons_convolved'], fill_value = 0)
+            
+            halo_data.gas.blue_flux = sw.cosmo_array(interpolated_quantities.flatten(), cosmo_factor=halo_data.gas.blue_flux.cosmo_factor)
 
         ### perform the projections in both broad bands
         red_flux = sw.visualisation.projection.project_gas(
             halo_data,
             resolution=self.p['resolution'], 
-            project="erosita_low_new",
+            project="red_flux",
             region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius, position[2]-depth, position[2]+depth],
             parallel = True,
             mask = halo_mask,
@@ -192,7 +200,7 @@ class Data():
         blue_flux = sw.visualisation.projection.project_gas(
             halo_data,
             resolution=self.p['resolution'], 
-            project="erosita_high_new", 
+            project="blue_flux", 
             region=[position[0] - radius, position[0] + radius, position[1] - radius, position[1] + radius, position[2]-depth, position[2]+depth],
             parallel = True,
             mask = halo_mask,
@@ -209,7 +217,7 @@ class Data():
         red_flux[np.where(red_flux == 0)] = 1
         blue_flux[np.where(blue_flux == 0)] = 1
         
-        return red_flux, blue_flux # cm**2/s
+        return red_flux, blue_flux # cm**2/s if interpolation, else 1/s
 
 
     def split_data(self, x, y):
