@@ -141,8 +141,6 @@ class Data():
         if remove_substructures:
             fof_group = halo_data.gas.fofgroup_ids[np.argmin(np.linalg.norm(halo_data.gas.coordinates - position, axis=1))]
             bound_particles_mask = (halo_data.gas.fofgroup_ids == fof_group) | (halo_data.gas.fofgroup_ids == 2147483647)
-            # bound_particles_mask = halo_data.gas.fofgroup_ids == fof_group
-            # bound_particles_mask = halo_data.gas.fofgroup_ids == 2147483647
             halo_mask = halo_mask * bound_particles_mask
 
         halo_data.gas.red_flux = halo_data.gas.xray_photon_luminosities.erosita_low
@@ -213,6 +211,11 @@ class Data():
         surface_per_pixel = (2*radius/a / self.p['resolution'])**2
         red_flux = red_flux*surface_per_pixel
         blue_flux = blue_flux*surface_per_pixel
+        
+        ### Multiply by the number of modules, as the energy dependent surface does not take this into account
+        red_flux *= self.p["modules"]
+        blue_flux *= self.p["modules"]
+
         ### set emitted photons per second to 1 if there are no particles in a region. prevents errors when taking log
         red_flux[np.where(red_flux == 0)] = 1
         blue_flux[np.where(blue_flux == 0)] = 1
